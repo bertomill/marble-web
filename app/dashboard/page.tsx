@@ -284,7 +284,9 @@ export default function Dashboard() {
                         <CardHeader className="pb-2">
                           <div className="flex justify-between items-start">
                             <CardTitle className="text-lg">{project.name}</CardTitle>
-                            {getStatusBadge(project.status)}
+                            <div className="mr-8">
+                              {getStatusBadge(project.status)}
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>
