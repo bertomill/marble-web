@@ -80,6 +80,30 @@ export default function NewProject() {
     }
   };
 
+  // Generate example user flow based on business type
+  const generateUserFlowExample = () => {
+    const businessType = formData.businessType.toLowerCase();
+    let example = "";
+
+    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+      example = "1. User lands on the homepage and sees featured products\n2. User navigates to product categories or uses search\n3. User views product details, images, and reviews\n4. User adds items to cart and proceeds to checkout\n5. User creates account or logs in\n6. User enters shipping and payment information\n7. User receives order confirmation and tracking details";
+    } 
+    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+      example = "1. User discovers content through search or social media\n2. User reads article and explores related content\n3. User subscribes to newsletter for updates\n4. User creates account to comment on articles\n5. User shares content with their network\n6. User receives personalized content recommendations";
+    }
+    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+      example = "1. User signs up for a free trial\n2. User completes onboarding tutorial\n3. User configures basic settings and preferences\n4. User invites team members and assigns roles\n5. User integrates with other tools via API\n6. User upgrades to paid plan after trial\n7. User receives regular feature updates";
+    }
+    else {
+      example = "1. User discovers app through marketing or word-of-mouth\n2. User signs up for an account\n3. User completes initial profile setup\n4. User explores key features through guided onboarding\n5. User performs core actions (e.g., creating content, connecting with others)\n6. User receives notifications and engages regularly\n7. User invites others and becomes a power user";
+    }
+
+    setFormData({
+      ...formData,
+      userFlow: example
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -212,9 +236,29 @@ export default function NewProject() {
                 {step === 3 && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="userFlow">
-                        User Experience & Flow
-                      </label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium" htmlFor="userFlow">
+                          User Experience & Flow
+                        </label>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generateUserFlowExample}
+                          className="text-xs px-2 py-1 h-auto border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-800"
+                        >
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-3 w-3 mr-1" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          See Example
+                        </Button>
+                      </div>
                       <Textarea
                         id="userFlow"
                         name="userFlow"
@@ -224,6 +268,9 @@ export default function NewProject() {
                         placeholder="Describe how a typical user would interact with your app or website."
                         rows={6}
                       />
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Outline the steps a user takes from first discovering your product to becoming a regular user.
+                      </p>
                     </div>
                   </div>
                 )}
