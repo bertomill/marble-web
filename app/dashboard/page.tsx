@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 //useAuth is a hook that allows you to access the user's authentication state
 import { db } from '@/lib/firebase';
 //db is the firestore database
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, deleteDoc, doc } from 'firebase/firestore';
 //collection, query, where, getDocs, Timestamp are firestore functions
 import AuthStatus from '@/components/AuthStatus';
 //AuthStatus is a component that allows you to access the user's authentication state
@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // this is the main function that is used to render the dashboard
 
@@ -141,6 +142,42 @@ export default function Dashboard() {
     if (!timestamp) return 'Unknown date';
     const date = getDateFromTimestamp(timestamp);
     return date.toLocaleDateString();
+  };
+
+  // Handle clicking outside to close dropdown
+  const handleOutsideClick = () => {
+    if (activeDropdown) {
+      setActiveDropdown(null);
+    }
+  };
+
+  // Handle deleting a project
+  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+      // Remove the project from the local state
+      setProjects(projects.filter(project => project.id !== projectId));
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      alert('Failed to delete project. Please try again.');
+    }
+    
+    setActiveDropdown(null);
+  };
+
+  // Handle editing a project (navigates to edit page)
+  const handleEditProject = (projectId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/project/${projectId}?edit=true`);
+    setActiveDropdown(null);
   };
 
   if (loading) {
@@ -240,9 +277,9 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" onClick={handleOutsideClick}>
                   {projects.map((project) => (
-                    <Card key={project.id} className="overflow-hidden hover:border-blue-200 transition-colors">
+                    <Card key={project.id} className="overflow-hidden hover:border-blue-200 transition-colors relative">
                       <Link href={`/project/${project.id}`} className="block h-full">
                         <CardHeader className="pb-2">
                           <div className="flex justify-between items-start">
@@ -257,6 +294,69 @@ export default function Dashboard() {
                           <div className="text-xs text-zinc-400">Created: {formatDate(project.createdAt)}</div>
                         </CardContent>
                       </Link>
+                      
+                      {/* Ellipsis Menu */}
+                      <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          className="p-1 rounded-full hover:bg-zinc-100"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setActiveDropdown(activeDropdown === project.id ? null : project.id);
+                          }}
+                        >
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            strokeWidth={1.5} 
+                            stroke="currentColor" 
+                            className="w-5 h-5 text-zinc-600"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                          </svg>
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {activeDropdown === project.id && (
+                          <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg overflow-hidden z-20 border">
+                            <div className="py-1">
+                              <button
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                                onClick={(e) => handleEditProject(project.id, e)}
+                              >
+                                <svg 
+                                  xmlns="http://www.w3.org/2000/svg" 
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  strokeWidth={1.5} 
+                                  stroke="currentColor" 
+                                  className="w-4 h-4 mr-2 text-gray-500"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                </svg>
+                                Edit
+                              </button>
+                              <button
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
+                                onClick={(e) => handleDeleteProject(project.id, e)}
+                              >
+                                <svg 
+                                  xmlns="http://www.w3.org/2000/svg" 
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  strokeWidth={1.5} 
+                                  stroke="currentColor" 
+                                  className="w-4 h-4 mr-2 text-red-500"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </Card>
                   ))}
                 </div>
