@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import React, { use } from 'react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 type ProjectData = {
   name: string;
@@ -39,6 +41,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProject, setEditedProject] = useState<ProjectData | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const projectId = use(params).id;
 
   // Fetch project data
@@ -54,7 +59,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         const projectSnap = await getDoc(projectRef);
         
         if (projectSnap.exists()) {
-          setProject(projectSnap.data() as ProjectData);
+          const projectData = projectSnap.data() as ProjectData;
+          setProject(projectData);
+          setEditedProject(projectData);
         } else {
           setError('Project not found');
         }
@@ -70,6 +77,47 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       fetchProject();
     }
   }, [projectId, user, loading, router]);
+
+  // Handle input changes when editing project
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditedProject(prev => {
+      if (!prev) return prev;
+      return { ...prev, [name]: value };
+    });
+  };
+
+  // Save edited project details
+  const saveProjectDetails = async () => {
+    if (!editedProject) return;
+    
+    setIsSaving(true);
+    try {
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        name: editedProject.name,
+        description: editedProject.description,
+        businessType: editedProject.businessType,
+        goals: editedProject.goals,
+        targetAudience: editedProject.targetAudience,
+        userFlow: editedProject.userFlow
+      });
+      
+      setProject(editedProject);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error saving project details:', err);
+      setError('Failed to save project details');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditedProject(project);
+    setIsEditing(false);
+  };
 
   // Function to generate AI plan
   const generatePlan = async () => {
@@ -263,42 +311,166 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       <main className="flex-grow p-6">
         <div className="container mx-auto max-w-4xl">
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-            {getStatusBadge(project.status)}
+            {!isEditing ? (
+              <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
+            ) : (
+              <div className="w-full pr-8">
+                <Input
+                  name="name"
+                  value={editedProject?.name || ''}
+                  onChange={handleEditChange}
+                  className="text-2xl font-bold h-12"
+                  placeholder="Project Name"
+                />
+              </div>
+            )}
+            <div className="flex-shrink-0">
+              {getStatusBadge(project.status)}
+            </div>
           </div>
           
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Project Details</CardTitle>
-              <CardDescription>
-                Information about your project requirements
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Project Details</CardTitle>
+                  <CardDescription>
+                    Information about your project requirements
+                  </CardDescription>
+                </div>
+                {!isEditing ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={cancelEditing}
+                      disabled={isSaving}
+                      className="flex items-center gap-1 border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={saveProjectDetails}
+                      disabled={isSaving}
+                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <h4 className="text-sm font-medium mb-1">Description</h4>
-                <p className="text-zinc-600">{project.description}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-1">Business Type</h4>
-                <p className="text-zinc-600">{project.businessType}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-1">Goals</h4>
-                <p className="text-zinc-600">{project.goals}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-1">Target Audience</h4>
-                <p className="text-zinc-600">{project.targetAudience}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-1">User Flow</h4>
-                <p className="text-zinc-600">{project.userFlow}</p>
-              </div>
+              {!isEditing ? (
+                // View mode
+                <>
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Description</h4>
+                    <p className="text-zinc-600">{project.description}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Business Type</h4>
+                    <p className="text-zinc-600">{project.businessType}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Goals</h4>
+                    <p className="text-zinc-600">{project.goals}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Target Audience</h4>
+                    <p className="text-zinc-600">{project.targetAudience}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">User Flow</h4>
+                    <p className="text-zinc-600">{project.userFlow}</p>
+                  </div>
+                </>
+              ) : (
+                // Edit mode
+                <>
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Project Name</h4>
+                    <Input
+                      name="name"
+                      value={editedProject?.name || ''}
+                      onChange={handleEditChange}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Description</h4>
+                    <Textarea
+                      name="description"
+                      value={editedProject?.description || ''}
+                      onChange={handleEditChange}
+                      rows={3}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Business Type</h4>
+                    <Input
+                      name="businessType"
+                      value={editedProject?.businessType || ''}
+                      onChange={handleEditChange}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Goals</h4>
+                    <Textarea
+                      name="goals"
+                      value={editedProject?.goals || ''}
+                      onChange={handleEditChange}
+                      rows={3}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Target Audience</h4>
+                    <Textarea
+                      name="targetAudience"
+                      value={editedProject?.targetAudience || ''}
+                      onChange={handleEditChange}
+                      rows={3}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">User Flow</h4>
+                    <Textarea
+                      name="userFlow"
+                      value={editedProject?.userFlow || ''}
+                      onChange={handleEditChange}
+                      rows={5}
+                      className="w-full"
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
           
