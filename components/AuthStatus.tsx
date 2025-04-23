@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import Image from 'next/image';
 
 export default function AuthStatus() {
   const { user, loading } = useAuth();
@@ -13,10 +14,12 @@ export default function AuthStatus() {
     return (
       <div className="flex items-center gap-2">
         {user.photoURL && (
-          <img 
+          <Image 
             src={user.photoURL} 
             alt={user.displayName || 'User'} 
-            className="w-6 h-6 rounded-full"
+            width={24}
+            height={24}
+            className="rounded-full"
           />
         )}
         <span className="text-sm font-medium">

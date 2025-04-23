@@ -24,33 +24,21 @@ type AIPlan = {
 export async function generatePlan(project: ProjectData): Promise<AIPlan> {
   // In a real implementation, this would be an API call to OpenAI
   
-  // Example of what the prompt might look like:
-  const prompt = `
-    You are an expert web and app development consultant. 
-    Create a detailed development plan for the following project:
-    
-    Project Name: ${project.name}
-    Description: ${project.description}
-    Business Type: ${project.businessType}
-    Goals: ${project.goals}
-    Target Audience: ${project.targetAudience}
-    User Flow: ${project.userFlow}
-    
-    Provide a response in JSON format with the following structure:
-    {
-      "summary": "A paragraph summarizing the project and approach",
-      "features": ["feature1", "feature2", ...],
-      "techStack": ["tech1", "tech2", ...],
-      "timeline": "Estimated completion timeframe"
-    }
-  `;
+  // Example of what the prompt construction might look like:
+  // const promptTemplate = `
+  //   You are an expert web and app development consultant. 
+  //   Create a detailed development plan for the following project:
+  //   
+  //   Project Name: ${project.name}
+  //   ...
+  // `;
   
   // For now, we'll just return mock data
   // This would be replaced with actual OpenAI API calls
   
   // Customize based on business type (simplified version of what's in the API route)
   const businessType = project.businessType?.toLowerCase() || '';
-  let features = [
+  const features = [
     'User authentication and profiles',
     'Responsive design for all devices',
     'Interactive user interface',
@@ -58,7 +46,7 @@ export async function generatePlan(project: ProjectData): Promise<AIPlan> {
     'Analytics dashboard'
   ];
   
-  let techStack = [
+  const techStack = [
     'React.js for frontend',
     'Firebase for backend and authentication',
     'Tailwind CSS for styling',
