@@ -28,4 +28,4 @@ if (typeof window !== 'undefined') {
   analytics = getAnalytics(app);
 }
 
-export { auth, db, googleProvider, analytics }; 
+export { app, auth, db, googleProvider, analytics }; 
