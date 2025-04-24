@@ -16,6 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 
+// Define competitor type
+type Competitor = {
+  name: string;
+  description: string;
+  url?: string;
+};
+
 export default function NewProject() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -26,9 +33,12 @@ export default function NewProject() {
     businessType: '',
     goals: '',
     targetAudience: '',
-    userFlow: ''
+    userFlow: '',
+    competitors: [] as Competitor[]
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -104,6 +114,37 @@ export default function NewProject() {
     });
   };
 
+  // Search for competitors using OpenAI's web search API
+  const searchCompetitors = async () => {
+    setIsSearching(true);
+    setSearchError('');
+    try {
+      const response = await fetch('/api/search-competitors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectName: formData.name,
+          projectDescription: formData.description,
+          businessType: formData.businessType,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search competitors');
+      }
+
+      const data = await response.json();
+      setFormData(prev => ({ ...prev, competitors: data.competitors }));
+    } catch (error) {
+      console.error('Error searching competitors:', error);
+      setSearchError('Failed to search for competitors. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -142,11 +183,12 @@ export default function NewProject() {
                 Tell us about your project to help our AI create a tailored development plan.
               </CardDescription>
               <div className="mt-2">
-                <Progress value={step * 33.33} className="h-2" />
+                <Progress value={step * 25} className="h-2" />
                 <div className="flex justify-between mt-1 text-xs text-zinc-500">
                   <span>Basic Info</span>
                   <span>Goals & Audience</span>
                   <span>User Experience</span>
+                  <span>Competition</span>
                 </div>
               </div>
             </CardHeader>
@@ -274,6 +316,59 @@ export default function NewProject() {
                     </div>
                   </div>
                 )}
+
+                {step === 4 && (
+                  <>
+                    <h2 className="text-2xl font-bold mb-4">Competitor Research</h2>
+                    <p className="mb-6">Let&apos;s analyze your competition to better position your product in the market.</p>
+                    
+                    {formData.competitors.length === 0 ? (
+                      <div className="mb-6">
+                        <p className="mb-4">We&apos;ll use AI to search the web for competitors similar to your business idea.</p>
+                        <Button 
+                          onClick={searchCompetitors} 
+                          disabled={isSearching}
+                          className="w-full md:w-auto mb-4"
+                        >
+                          {isSearching ? 'Searching...' : 'Find Competitors'}
+                        </Button>
+                        {searchError && <p className="text-red-500 mt-2">{searchError}</p>}
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        <h3 className="text-xl font-semibold mb-3">Top Competitors Found:</h3>
+                        <div className="space-y-4">
+                          {formData.competitors.map((competitor, index) => (
+                            <Card key={index} className="border border-gray-200">
+                              <CardHeader>
+                                <CardTitle>{competitor.name}</CardTitle>
+                                {competitor.url && (
+                                  <CardDescription>
+                                    <a href={competitor.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                      {competitor.url}
+                                    </a>
+                                  </CardDescription>
+                                )}
+                              </CardHeader>
+                              <CardContent>
+                                <p>{competitor.description}</p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                        <Button 
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, competitors: [] }));
+                          }}
+                          variant="outline"
+                          className="mt-4"
+                        >
+                          Reset Search
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
               </form>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -289,7 +384,7 @@ export default function NewProject() {
                 <div></div>
               )}
               
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button 
                   type="button" 
                   onClick={nextStep} 

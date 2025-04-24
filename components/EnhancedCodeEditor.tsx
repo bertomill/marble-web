@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+type FileTreeItem = {
+  name: string;
+  path: string;
+  type: string;
+  active?: boolean;
+  children?: FileTreeItem[];
+};
+
 type Message = {
   id?: string;
   text: string;
@@ -58,6 +66,7 @@ export default function App() {
   );
 }`);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [activeTab, setActiveTab] = useState<'code' | 'preview' | 'terminal'>('code');
   const [activeSection, setActiveSection] = useState<'editor' | 'assistant'>('editor');
   const [isSaving, setIsSaving] = useState(false);
@@ -70,7 +79,8 @@ export default function App() {
     }
   ]);
   const [newMessage, setNewMessage] = useState('');
-  const [fileTree, setFileTree] = useState([
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [fileTree, setFileTree] = useState<FileTreeItem[]>([
     { name: 'index.html', path: '/index.html', type: 'file' },
     { name: 'styles.css', path: '/styles.css', type: 'file' },
     { name: 'app.js', path: '/app.js', type: 'file', active: true },
@@ -147,8 +157,8 @@ I can help you implement any of the planned features including: ${projectContext
           timestamp: new Date()
         };
       } else if (newMessage.toLowerCase().includes('generate') || 
-                newMessage.toLowerCase().includes('create') ||
-                newMessage.toLowerCase().includes('build')) {
+                newMessage.includes('create') ||
+                newMessage.includes('build')) {
         // Generate some example code based on the request
         aiResponse = {
           text: `I'll help you implement that. Here's some code to get started:
