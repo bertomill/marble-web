@@ -288,11 +288,11 @@ export default function NewProject() {
     }
   };
 
-  // Handle keyboard shortcut (Alt+S) to trigger speech recognition
+  // Handle keyboard shortcut (F4) to trigger speech recognition
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Alt+S shortcut
-      if (e.altKey && e.key === 's') {
+      // F4 shortcut
+      if (e.key === 'F4') {
         e.preventDefault();
         
         // Find focused element
@@ -343,7 +343,7 @@ export default function NewProject() {
           <TooltipContent>
             <p>{isListening && currentField === fieldName 
               ? "Stop dictation" 
-              : "Start dictation (Alt+S)"}</p>
+              : "Start dictation (F4)"}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -379,7 +379,27 @@ export default function NewProject() {
       {/* Main Content */}
       <main className="flex-grow p-6">
         <div className="container mx-auto max-w-2xl">
-          <h2 className="text-3xl font-bold tracking-tight mb-8">Create New Project</h2>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold tracking-tight">Create New Project</h2>
+            {speechSupported && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const activeElement = document.activeElement as HTMLElement;
+                  if (activeElement && activeElement.id && formData.hasOwnProperty(activeElement.id)) {
+                    startListening(activeElement.id);
+                  }
+                }}
+                className="text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                </svg>
+                Start dictation (F4)
+              </Button>
+            )}
+          </div>
           
           {!speechSupported && (
             <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
