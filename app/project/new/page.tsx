@@ -66,7 +66,7 @@ export default function NewProject() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    businessType: '',
+    businessType: [] as string[],
     goals: '',
     targetAudience: '',
     userFlow: '',
@@ -94,7 +94,30 @@ export default function NewProject() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Special handling for businessType input field
+    if (name === 'businessType') {
+      // Parse comma-separated values into an array
+      const types = value.split(',').map(type => type.trim()).filter(type => type !== '');
+      setFormData(prev => ({ ...prev, [name]: types }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Toggle a business type selection
+  const toggleBusinessType = (type: string) => {
+    setFormData(prev => {
+      const currentTypes = [...prev.businessType];
+      
+      if (currentTypes.includes(type)) {
+        // Remove type if already selected
+        return { ...prev, businessType: currentTypes.filter(t => t !== type) };
+      } else {
+        // Add type if not selected
+        return { ...prev, businessType: [...currentTypes, type] };
+      }
+    });
   };
 
   const nextStep = () => {
@@ -137,16 +160,16 @@ export default function NewProject() {
 
   // Generate example user flow based on business type
   const generateUserFlowExample = () => {
-    const businessType = formData.businessType.toLowerCase();
+    const businessTypeString = formData.businessType.join(', ').toLowerCase();
     let example = "";
 
-    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+    if (businessTypeString.includes('ecommerce') || businessTypeString.includes('shop') || businessTypeString.includes('store') || businessTypeString.includes('marketplace')) {
       example = "1. User lands on the homepage and sees featured products\n2. User navigates to product categories or uses search\n3. User views product details, images, and reviews\n4. User adds items to cart and proceeds to checkout\n5. User creates account or logs in\n6. User enters shipping and payment information\n7. User receives order confirmation and tracking details";
     } 
-    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+    else if (businessTypeString.includes('blog') || businessTypeString.includes('content') || businessTypeString.includes('news')) {
       example = "1. User discovers content through search or social media\n2. User reads article and explores related content\n3. User subscribes to newsletter for updates\n4. User creates account to comment on articles\n5. User shares content with their network\n6. User receives personalized content recommendations";
     }
-    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+    else if (businessTypeString.includes('saas') || businessTypeString.includes('software') || businessTypeString.includes('tool')) {
       example = "1. User signs up for a free trial\n2. User completes onboarding tutorial\n3. User configures basic settings and preferences\n4. User invites team members and assigns roles\n5. User integrates with other tools via API\n6. User upgrades to paid plan after trial\n7. User receives regular feature updates";
     }
     else {
@@ -161,16 +184,16 @@ export default function NewProject() {
 
   // Generate example business goals based on business type
   const generateBusinessGoalsExample = () => {
-    const businessType = formData.businessType.toLowerCase();
+    const businessTypeString = formData.businessType.join(', ').toLowerCase();
     let example = "";
 
-    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+    if (businessTypeString.includes('ecommerce') || businessTypeString.includes('shop') || businessTypeString.includes('store') || businessTypeString.includes('marketplace')) {
       example = "• Increase online sales by 30% in the first year\n• Achieve a 15% conversion rate for site visitors\n• Build a loyal customer base with 40% returning customers\n• Expand product catalog to include 200+ items by end of year\n• Reduce cart abandonment rate to under 20%\n• Integrate with social media platforms for social commerce\n• Implement customer reviews and ratings to build trust";
     } 
-    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+    else if (businessTypeString.includes('blog') || businessTypeString.includes('content') || businessTypeString.includes('news')) {
       example = "• Grow readership to 10,000 monthly active users\n• Build email subscriber list to 5,000 within first year\n• Generate revenue through premium content subscriptions\n• Increase social media following by 50% each quarter\n• Establish the platform as an authoritative source in the industry\n• Create a community of engaged readers through comments and forums\n• Monetize through strategic sponsorships and native advertising";
     }
-    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+    else if (businessTypeString.includes('saas') || businessTypeString.includes('software') || businessTypeString.includes('tool')) {
       example = "• Achieve 1,000 paid users in the first year\n• Maintain a monthly churn rate below 5%\n• Achieve product-market fit with a Net Promoter Score above 40\n• Develop 3 premium tiers with clear upgrade paths\n• Integrate with 5 complementary tools/platforms\n• Establish a customer success program to drive retention\n• Build a developer community around our API";
     }
     else {
@@ -185,16 +208,16 @@ export default function NewProject() {
 
   // Generate example target audience based on business type
   const generateTargetAudienceExample = () => {
-    const businessType = formData.businessType.toLowerCase();
+    const businessTypeString = formData.businessType.join(', ').toLowerCase();
     let example = "";
 
-    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+    if (businessTypeString.includes('ecommerce') || businessTypeString.includes('shop') || businessTypeString.includes('store') || businessTypeString.includes('marketplace')) {
       example = "• Primary: Tech-savvy consumers aged 25-45 with disposable income\n• Professionals looking for high-quality products in our niche\n• Urban dwellers who prefer online shopping over in-store visits\n• Value-conscious shoppers who research before purchasing\n• Gift buyers looking for unique and personalized options\n• Fashion-forward individuals who follow the latest trends\n• International customers seeking products not available locally";
     } 
-    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+    else if (businessTypeString.includes('blog') || businessTypeString.includes('content') || businessTypeString.includes('news')) {
       example = "• Industry professionals seeking in-depth knowledge and analysis\n• Students and academics researching topics in our field\n• Enthusiasts and hobbyists passionate about our subject matter\n• Decision-makers looking for trends and insights\n• Professionals aged 30-50 who want to stay informed on industry developments\n• Newcomers to the field seeking educational content and guidance\n• Opinion leaders who share valuable content with their networks";
     }
-    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+    else if (businessTypeString.includes('saas') || businessTypeString.includes('software') || businessTypeString.includes('tool')) {
       example = "• Small to medium-sized businesses looking to improve efficiency\n• Startup founders and entrepreneurs building their tech stack\n• Department managers with budget authority for software decisions\n• Technical professionals like developers, designers, and project managers\n• Remote teams needing collaboration tools\n• Enterprise clients seeking customizable solutions\n• Non-technical users who need intuitive, user-friendly interfaces";
     }
     else {
@@ -220,7 +243,7 @@ export default function NewProject() {
         body: JSON.stringify({
           projectName: formData.name,
           projectDescription: formData.description,
-          businessType: formData.businessType,
+          businessType: formData.businessType.join(', '),
         }),
       });
 
@@ -254,13 +277,21 @@ export default function NewProject() {
     
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
-      const currentValue = formData[fieldName as keyof typeof formData] as string;
-      setFormData(prev => ({ 
-        ...prev, 
-        [fieldName]: currentValue 
-          ? `${currentValue}\n${transcript}` 
-          : transcript
-      }));
+      
+      if (fieldName === 'businessType') {
+        // Handle business type as an array
+        const types = transcript.split(',').map(type => type.trim()).filter(type => type !== '');
+        setFormData(prev => ({ ...prev, businessType: [...prev.businessType, ...types] }));
+      } else {
+        // Handle other fields normally
+        const currentValue = formData[fieldName as keyof typeof formData] as string;
+        setFormData(prev => ({ 
+          ...prev, 
+          [fieldName]: currentValue 
+            ? `${currentValue}\n${transcript}` 
+            : transcript
+        }));
+      }
     };
     
     recognition.onend = () => {
@@ -473,9 +504,9 @@ export default function NewProject() {
                           <button
                             key={type}
                             type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, businessType: type }))}
+                            onClick={() => toggleBusinessType(type)}
                             className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                              formData.businessType === type
+                              formData.businessType.includes(type)
                                 ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                                 : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
                             }`}
@@ -488,16 +519,16 @@ export default function NewProject() {
                         <Input
                           id="businessType"
                           name="businessType"
-                          value={formData.businessType}
+                          value={formData.businessType.join(', ')}
                           onChange={handleChange}
                           required
-                          placeholder="E-commerce, Blog, Social Network, etc."
+                          placeholder="Select or type business types (comma separated)"
                           className="pr-10"
                         />
                         {renderMicButton('businessType')}
                       </div>
                       <p className="text-xs text-zinc-500 mt-1">
-                        Select from our suggestions above or type your own business type.
+                        Select multiple types or type your own (separate with commas).
                       </p>
                     </div>
                   </div>
