@@ -61,7 +61,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+        <DialogHeader className="mb-4">
           <DialogTitle className="text-center text-2xl font-bold">
             Welcome to Marble
           </DialogTitle>
@@ -77,12 +77,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="login" className="space-y-4">
+          <TabsContent value="login" className="space-y-4 mt-2">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -106,13 +106,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full mt-2">
                 Sign In
               </Button>
             </form>
           </TabsContent>
 
-          <TabsContent value="register" className="space-y-4">
+          <TabsContent value="register" className="space-y-4 mt-2">
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="register-name">Name (optional)</Label>
@@ -145,14 +145,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full mt-2">
                 Create Account
               </Button>
             </form>
           </TabsContent>
         </Tabs>
 
-        <div className="relative my-4">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
