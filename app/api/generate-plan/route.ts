@@ -88,16 +88,23 @@ export async function POST(request: NextRequest) {
     1. A concise but detailed summary of the project that captures its essence and value proposition
     2. A list of key features that should be implemented, ordered by priority and addressing specific user needs
     3. A recommended tech stack with specific modern technologies, languages, frameworks, and tools that are well-suited for this particular project
-    4. A realistic timeline for development, broken down into phases or milestones
+    4. A detailed step-by-step build process with clear phases and milestones
+    5. A suggested data schema with entities, fields, and relationships
+    6. A recommended folder structure for organizing the codebase
 
     Format your response as a structured JSON object with the following keys:
     - summary (string)
     - features (array of strings)
     - techStack (array of strings)
-    - timeline (string)
+    - buildSteps (array of objects with "phase" and "tasks" keys, where tasks is an array of strings)
+    - dataSchema (array of objects with "entity", "fields", and "relationships" keys)
+    - folderStructure (array of strings representing folders and files)
 
     For each technology in the tech stack, provide a brief explanation of why it's appropriate.
     For the features, focus on user-centric functionality that delivers value.
+    For buildSteps, create a logical sequence of tasks grouped into phases.
+    For dataSchema, define the main data entities, their fields, and relationships between entities.
+    For folderStructure, provide a clear, organized structure following best practices for the tech stack.
     
     Be specific and practical in your recommendations. Avoid generic advice.`;
 
@@ -115,6 +122,9 @@ export async function POST(request: NextRequest) {
       Please provide a comprehensive plan that addresses these specific requirements and will help me build this project successfully.
       
       Include at least 4-6 specific features and 4-6 specific technologies in the tech stack.
+      Create a detailed step-by-step build process with clear phases (planning, setup, core development, testing, deployment).
+      Design a data schema with the main entities needed for this application.
+      Suggest a folder structure that follows modern best practices for the tech stack.
       Be concrete and specific in all your recommendations.
     `;
 

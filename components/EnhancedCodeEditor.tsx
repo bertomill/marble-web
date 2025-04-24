@@ -32,6 +32,9 @@ type ProjectContext = {
   userFlow: string;
   features: string[];
   techStack: string[];
+  buildSteps?: { phase: string; tasks: string[] }[];
+  dataSchema?: { entity: string; fields: string[]; relationships: string[] }[];
+  folderStructure?: string[];
 };
 
 type EnhancedCodeEditorProps = {
