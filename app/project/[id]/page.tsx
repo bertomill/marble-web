@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import BuildingInterface from '@/components/BuildingInterface';
+import EnhancedCodeEditor from '@/components/EnhancedCodeEditor';
 import AuthStatus from '@/components/AuthStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -630,7 +630,19 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <BuildingInterface projectId={projectId} />
+                <EnhancedCodeEditor 
+                  projectId={projectId} 
+                  projectContext={{
+                    name: project.name,
+                    description: project.description,
+                    businessType: project.businessType,
+                    goals: project.goals,
+                    targetAudience: project.targetAudience,
+                    userFlow: project.userFlow,
+                    features: project.aiPlan?.features || [],
+                    techStack: project.aiPlan?.techStack || []
+                  }}
+                />
               </CardContent>
             </Card>
           )}
