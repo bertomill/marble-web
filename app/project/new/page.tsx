@@ -114,6 +114,54 @@ export default function NewProject() {
     });
   };
 
+  // Generate example business goals based on business type
+  const generateBusinessGoalsExample = () => {
+    const businessType = formData.businessType.toLowerCase();
+    let example = "";
+
+    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+      example = "• Increase online sales by 30% in the first year\n• Achieve a 15% conversion rate for site visitors\n• Build a loyal customer base with 40% returning customers\n• Expand product catalog to include 200+ items by end of year\n• Reduce cart abandonment rate to under 20%\n• Integrate with social media platforms for social commerce\n• Implement customer reviews and ratings to build trust";
+    } 
+    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+      example = "• Grow readership to 10,000 monthly active users\n• Build email subscriber list to 5,000 within first year\n• Generate revenue through premium content subscriptions\n• Increase social media following by 50% each quarter\n• Establish the platform as an authoritative source in the industry\n• Create a community of engaged readers through comments and forums\n• Monetize through strategic sponsorships and native advertising";
+    }
+    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+      example = "• Achieve 1,000 paid users in the first year\n• Maintain a monthly churn rate below 5%\n• Achieve product-market fit with a Net Promoter Score above 40\n• Develop 3 premium tiers with clear upgrade paths\n• Integrate with 5 complementary tools/platforms\n• Establish a customer success program to drive retention\n• Build a developer community around our API";
+    }
+    else {
+      example = "• Launch an MVP within 3 months\n• Onboard 500 users within the first quarter\n• Achieve product-market fit based on user feedback\n• Implement a scalable business model for sustainable growth\n• Develop a comprehensive marketing strategy to increase brand awareness\n• Secure initial funding or revenue to support ongoing development\n• Build a talented team to support growth and innovation";
+    }
+
+    setFormData({
+      ...formData,
+      goals: example
+    });
+  };
+
+  // Generate example target audience based on business type
+  const generateTargetAudienceExample = () => {
+    const businessType = formData.businessType.toLowerCase();
+    let example = "";
+
+    if (businessType.includes('ecommerce') || businessType.includes('shop') || businessType.includes('store')) {
+      example = "• Primary: Tech-savvy consumers aged 25-45 with disposable income\n• Professionals looking for high-quality products in our niche\n• Urban dwellers who prefer online shopping over in-store visits\n• Value-conscious shoppers who research before purchasing\n• Gift buyers looking for unique and personalized options\n• Fashion-forward individuals who follow the latest trends\n• International customers seeking products not available locally";
+    } 
+    else if (businessType.includes('blog') || businessType.includes('content') || businessType.includes('news')) {
+      example = "• Industry professionals seeking in-depth knowledge and analysis\n• Students and academics researching topics in our field\n• Enthusiasts and hobbyists passionate about our subject matter\n• Decision-makers looking for trends and insights\n• Professionals aged 30-50 who want to stay informed on industry developments\n• Newcomers to the field seeking educational content and guidance\n• Opinion leaders who share valuable content with their networks";
+    }
+    else if (businessType.includes('saas') || businessType.includes('software') || businessType.includes('tool')) {
+      example = "• Small to medium-sized businesses looking to improve efficiency\n• Startup founders and entrepreneurs building their tech stack\n• Department managers with budget authority for software decisions\n• Technical professionals like developers, designers, and project managers\n• Remote teams needing collaboration tools\n• Enterprise clients seeking customizable solutions\n• Non-technical users who need intuitive, user-friendly interfaces";
+    }
+    else {
+      example = "• Early adopters who embrace new technologies and solutions\n• Specific demographic group: [age range, location, income level]\n• Users with the specific pain point our product addresses\n• People with particular interests or lifestyle choices related to our offering\n• Professional roles that would benefit from our solution\n• Existing users of complementary or competing products\n• Decision-makers with purchasing authority in relevant organizations";
+    }
+
+    setFormData({
+      ...formData,
+      targetAudience: example
+    });
+  };
+
   // Search for competitors using OpenAI's web search API
   const searchCompetitors = async () => {
     setIsSearching(true);
@@ -244,33 +292,79 @@ export default function NewProject() {
                 {step === 2 && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="goals">
-                        Business Goals
-                      </label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium" htmlFor="goals">
+                          Business Goals
+                        </label>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generateBusinessGoalsExample}
+                          className="text-xs px-2 py-1 h-auto border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-800"
+                        >
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-3 w-3 mr-1" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          See Example
+                        </Button>
+                      </div>
                       <Textarea
                         id="goals"
                         name="goals"
                         value={formData.goals}
                         onChange={handleChange}
                         required
-                        placeholder="What are you hoping to achieve with this app or website?"
+                        placeholder="What are your key business objectives? Consider revenue targets, user growth, market positioning, etc."
                         rows={4}
                       />
+                      <p className="text-xs text-zinc-500 mt-1">
+                        List specific, measurable goals your project should help you achieve.
+                      </p>
                     </div>
                     
                     <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="targetAudience">
-                        Target Audience
-                      </label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium" htmlFor="targetAudience">
+                          Target Audience
+                        </label>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generateTargetAudienceExample}
+                          className="text-xs px-2 py-1 h-auto border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-800"
+                        >
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-3 w-3 mr-1" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          See Example
+                        </Button>
+                      </div>
                       <Textarea
                         id="targetAudience"
                         name="targetAudience"
                         value={formData.targetAudience}
                         onChange={handleChange}
                         required
-                        placeholder="Who will be using your app or website?"
+                        placeholder="Describe your ideal users. Consider demographics, behaviors, needs, and pain points."
                         rows={4}
                       />
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Understanding your audience helps create a more targeted and effective solution.
+                      </p>
                     </div>
                   </div>
                 )}
