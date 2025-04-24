@@ -15,6 +15,42 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// TypeScript declarations for the Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
+interface SpeechRecognitionEvent {
+  results: {
+    [key: number]: {
+      [key: number]: {
+        transcript: string;
+        confidence: number;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onend: () => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+}
 
 // Define competitor type
 type Competitor = {
@@ -39,6 +75,15 @@ export default function NewProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [currentField, setCurrentField] = useState<string | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(true);
+
+  // Check if speech recognition is supported
+  useEffect(() => {
+    const isSpeechRecognitionSupported = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+    setSpeechSupported(isSpeechRecognitionSupported);
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -193,6 +238,118 @@ export default function NewProject() {
     }
   };
 
+  // Speech recognition functionality
+  const startListening = (fieldName: string) => {
+    if (!speechSupported) return;
+
+    setIsListening(true);
+    setCurrentField(fieldName);
+
+    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionConstructor();
+    
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript;
+      const currentValue = formData[fieldName as keyof typeof formData] as string;
+      setFormData(prev => ({ 
+        ...prev, 
+        [fieldName]: currentValue 
+          ? `${currentValue}\n${transcript}` 
+          : transcript
+      }));
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+      setCurrentField(null);
+    };
+    
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('Speech recognition error', event.error);
+      setIsListening(false);
+      setCurrentField(null);
+    };
+    
+    recognition.start();
+  };
+
+  // Stop listening
+  const stopListening = () => {
+    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognitionConstructor) {
+      const recognition = new SpeechRecognitionConstructor();
+      recognition.stop();
+      setIsListening(false);
+      setCurrentField(null);
+    }
+  };
+
+  // Handle keyboard shortcut (Alt+S) to trigger speech recognition
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt+S shortcut
+      if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        
+        // Find focused element
+        const activeElement = document.activeElement as HTMLElement;
+        if (activeElement && activeElement.id) {
+          const fieldName = activeElement.id;
+          if (formData.hasOwnProperty(fieldName)) {
+            startListening(fieldName);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [formData]);
+
+  // Render microphone button for each field
+  const renderMicButton = (fieldName: string) => {
+    if (!speechSupported) return null;
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => isListening && currentField === fieldName ? stopListening() : startListening(fieldName)}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full 
+                ${isListening && currentField === fieldName 
+                  ? 'bg-red-100 text-red-600 animate-pulse' 
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+              aria-label={isListening && currentField === fieldName ? "Stop dictation" : "Start dictation"}
+            >
+              {isListening && currentField === fieldName ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                </svg>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{isListening && currentField === fieldName 
+              ? "Stop dictation" 
+              : "Start dictation (Alt+S)"}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -224,6 +381,12 @@ export default function NewProject() {
         <div className="container mx-auto max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight mb-8">Create New Project</h2>
           
+          {!speechSupported && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+              <p>Speech-to-text is not supported in your browser. For the best experience, use Chrome, Edge, or Safari.</p>
+            </div>
+          )}
+          
           <Card>
             <CardHeader>
               <CardTitle>Project Details</CardTitle>
@@ -248,43 +411,55 @@ export default function NewProject() {
                       <label className="text-sm font-medium" htmlFor="name">
                         Project Name
                       </label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        placeholder="My Awesome App"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          required
+                          placeholder="My Awesome App"
+                          className="pr-10"
+                        />
+                        {renderMicButton('name')}
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
                       <label className="text-sm font-medium" htmlFor="description">
                         Description
                       </label>
-                      <Textarea
-                        id="description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        required
-                        placeholder="Briefly describe what your project is about"
-                        rows={4}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          id="description"
+                          name="description"
+                          value={formData.description}
+                          onChange={handleChange}
+                          required
+                          placeholder="Briefly describe what your project is about"
+                          rows={4}
+                          className="pr-10"
+                        />
+                        {renderMicButton('description')}
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
                       <label className="text-sm font-medium" htmlFor="businessType">
                         Business Type
                       </label>
-                      <Input
-                        id="businessType"
-                        name="businessType"
-                        value={formData.businessType}
-                        onChange={handleChange}
-                        required
-                        placeholder="E-commerce, Blog, Social Network, etc."
-                      />
+                      <div className="relative">
+                        <Input
+                          id="businessType"
+                          name="businessType"
+                          value={formData.businessType}
+                          onChange={handleChange}
+                          required
+                          placeholder="E-commerce, Blog, Social Network, etc."
+                          className="pr-10"
+                        />
+                        {renderMicButton('businessType')}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -315,15 +490,19 @@ export default function NewProject() {
                           See Example
                         </Button>
                       </div>
-                      <Textarea
-                        id="goals"
-                        name="goals"
-                        value={formData.goals}
-                        onChange={handleChange}
-                        required
-                        placeholder="What are your key business objectives? Consider revenue targets, user growth, market positioning, etc."
-                        rows={4}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          id="goals"
+                          name="goals"
+                          value={formData.goals}
+                          onChange={handleChange}
+                          required
+                          placeholder="What are your key business objectives? Consider revenue targets, user growth, market positioning, etc."
+                          rows={4}
+                          className="pr-10"
+                        />
+                        {renderMicButton('goals')}
+                      </div>
                       <p className="text-xs text-zinc-500 mt-1">
                         List specific, measurable goals your project should help you achieve.
                       </p>
@@ -353,15 +532,19 @@ export default function NewProject() {
                           See Example
                         </Button>
                       </div>
-                      <Textarea
-                        id="targetAudience"
-                        name="targetAudience"
-                        value={formData.targetAudience}
-                        onChange={handleChange}
-                        required
-                        placeholder="Describe your ideal users. Consider demographics, behaviors, needs, and pain points."
-                        rows={4}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          id="targetAudience"
+                          name="targetAudience"
+                          value={formData.targetAudience}
+                          onChange={handleChange}
+                          required
+                          placeholder="Describe your ideal users. Consider demographics, behaviors, needs, and pain points."
+                          rows={4}
+                          className="pr-10"
+                        />
+                        {renderMicButton('targetAudience')}
+                      </div>
                       <p className="text-xs text-zinc-500 mt-1">
                         Understanding your audience helps create a more targeted and effective solution.
                       </p>
@@ -395,15 +578,19 @@ export default function NewProject() {
                           See Example
                         </Button>
                       </div>
-                      <Textarea
-                        id="userFlow"
-                        name="userFlow"
-                        value={formData.userFlow}
-                        onChange={handleChange}
-                        required
-                        placeholder="Describe how a typical user would interact with your app or website."
-                        rows={6}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          id="userFlow"
+                          name="userFlow"
+                          value={formData.userFlow}
+                          onChange={handleChange}
+                          required
+                          placeholder="Describe how a typical user would interact with your app or website."
+                          rows={6}
+                          className="pr-10"
+                        />
+                        {renderMicButton('userFlow')}
+                      </div>
                       <p className="text-xs text-zinc-500 mt-1">
                         Outline the steps a user takes from first discovering your product to becoming a regular user.
                       </p>
