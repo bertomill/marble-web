@@ -468,6 +468,22 @@ export default function NewProject() {
                       <label className="text-sm font-medium" htmlFor="businessType">
                         Business Type
                       </label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {['E-commerce', 'SaaS', 'Blog/Content', 'Social Network', 'Marketplace', 'Mobile App', 'Educational'].map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, businessType: type }))}
+                            className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                              formData.businessType === type
+                                ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                                : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
                       <div className="relative">
                         <Input
                           id="businessType"
@@ -480,6 +496,9 @@ export default function NewProject() {
                         />
                         {renderMicButton('businessType')}
                       </div>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Select from our suggestions above or type your own business type.
+                      </p>
                     </div>
                   </div>
                 )}
