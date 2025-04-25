@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthStatus from '@/components/AuthStatus';
 import AuthModal from '@/components/AuthModal';
@@ -54,8 +55,22 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-b from-zinc-50 to-white">
-        <div className="container mx-auto px-4 text-center">
+      <section className="py-16 md:py-24 bg-gradient-to-b from-zinc-50 to-white relative overflow-hidden">
+        {/* Marble sketch background */}
+        <div className="absolute inset-0 flex justify-center items-center opacity-[0.07] pointer-events-none z-0">
+          <div className="w-full md:w-3/4 2xl:w-1/2">
+            <Image 
+              src="/images/marble_sketch.png" 
+              alt="Marble wireframe sketch" 
+              width={1200} 
+              height={800}
+              className="w-full h-auto object-contain"
+              priority
+            />
+          </div>
+        </div>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
             Build Your Website or App with AI
           </h2>
