@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 //useAuth is a hook that allows you to access the user's authentication state
 import { useAuth } from '@/contexts/AuthContext';
+// lib/firebase means the firebase config file  
 import { db } from '@/lib/firebase';
+// doc, setDoc, collection, serverTimestamp are firebase functions
 import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import AuthStatus from '@/components/AuthStatus';
 import { Button } from '@/components/ui/button';
@@ -51,6 +53,7 @@ interface SpeechRecognition {
   onend: () => void;
   onerror: (event: SpeechRecognitionErrorEvent) => void;
 }
+// this means that the SpeechRecognition interface is defined in the global scope
 
 // Define competitor type
 type Competitor = {
@@ -58,6 +61,8 @@ type Competitor = {
   description: string;
   url?: string;
 };
+
+// this code is used to define the competitor type
 
 export default function NewProject() {
   const { user, loading } = useAuth();

@@ -1,14 +1,19 @@
 //This is the route for the generate-plan API endpoint
 import { NextRequest, NextResponse } from 'next/server';
+//This is the Anthropic SDK
+// the anthropic-ai/sdk is a package that allows you to interact with the Anthropic API
+// an sdk is a software development kit that allows you to interact with a specific API
 import { Anthropic } from '@anthropic-ai/sdk';
 
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
+// isDevelopment is a boolean that is true if the NODE_ENV is development
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 console.log('Environment:', process.env.NODE_ENV);
+// environment variables are stored in the .env.local file
 console.log('API Key available:', !!apiKey);
-
+// !!apiKey is a boolean that is true if apiKey is not null or undefined
 // For debugging environment variables in development
 if (isDevelopment) {
   console.log('Available environment variables:', Object.keys(process.env).filter(key => !key.includes('_KEY')));
@@ -16,11 +21,14 @@ if (isDevelopment) {
 
 const getAnthropicClient = () => {
   if (!apiKey) {
+    // if apiKey is not set in environment variables, throw an error
     console.error('ANTHROPIC_API_KEY is not set in environment variables');
+    // throw an error with a message
     throw new Error('Missing API key for Anthropic');
   }
   
   return new Anthropic({
+    // anthropic is the name of the client
     apiKey: apiKey
   });
 };
@@ -55,6 +63,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check for API key first
     if (!apiKey) {
+        // if apiKey is not set in environment variables, log a warning
       console.warn('ANTHROPIC_API_KEY is not set in environment variables, using mock plan for development');
       
       // In development, log more info to help debugging

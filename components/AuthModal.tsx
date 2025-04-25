@@ -1,7 +1,11 @@
 'use client';
+// use client is used to ensure that the component is rendered on the client side
+// the client side is the browser that the user is using to view the page
 
 import { useState } from 'react';
+// useState is used to create a state variable
 import { useAuth } from '@/contexts/AuthContext';
+// useAuth is used to access the authentication context
 import {
   Dialog,
   DialogContent,
@@ -9,11 +13,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+// Dialog is used to create a modal dialog
 import { Button } from '@/components/ui/button';
+// Button is used to create a button  
 import { Input } from '@/components/ui/input';
+// Input is used to create an input field
 import { Label } from '@/components/ui/label';
+// Label is used to create a label for an input field
 import { Alert, AlertDescription } from '@/components/ui/alert';
+// Alert is used to create an alert
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// Tabs is used to create a tabbed interface
 
 type AuthModalProps = {
   isOpen: boolean;
@@ -58,6 +68,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     if (!error) handleClose();
   };
 
+  // return the dialog component
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">

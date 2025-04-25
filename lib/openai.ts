@@ -2,6 +2,7 @@
 // In a real implementation, we would use the OpenAI SDK
 
 type ProjectData = {
+  // this is the data that is passed to the openai api
   name: string;
   description: string;
   businessType: string;
@@ -11,6 +12,7 @@ type ProjectData = {
 };
 
 type AIPlan = {
+  // this is the data that is returned from the openai api
   summary: string;
   features: string[];
   techStack: string[];
@@ -39,6 +41,7 @@ export async function generatePlan(project: ProjectData): Promise<AIPlan> {
   // Customize based on business type (simplified version of what's in the API route)
   const businessType = project.businessType?.toLowerCase() || '';
   const features = [
+    // this is the features that are returned from the openai api
     'User authentication and profiles',
     'Responsive design for all devices',
     'Interactive user interface',
@@ -47,6 +50,7 @@ export async function generatePlan(project: ProjectData): Promise<AIPlan> {
   ];
   
   const techStack = [
+    // this is the tech stack that is returned from the openai api
     'React.js for frontend',
     'Firebase for backend and authentication',
     'Tailwind CSS for styling',
@@ -54,12 +58,14 @@ export async function generatePlan(project: ProjectData): Promise<AIPlan> {
   ];
 
   if (businessType.includes('ecommerce')) {
+    // this is the ecommerce features that are returned from the openai api
     features.push('Shopping cart and checkout');
     features.push('Product catalog');
     techStack.push('Stripe for payments');
   }
 
   return {
+    // this is the summary that is returned from the openai api
     summary: `Based on your requirements for ${project.name}, we recommend building a web application that serves ${project.targetAudience}. This will help you achieve your goals of ${project.goals}.`,
     features,
     techStack,

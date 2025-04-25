@@ -1,8 +1,15 @@
 'use client';
+// this is a client side component
 
 import { useState, useRef, useEffect } from 'react';
+// useState is used to manage the state of the component
+// useRef is used to manage the ref of the component
+// useEffect is used to manage the effect of the component
 import { db } from '@/lib/firebase';
+// db is the firebase database
 import { doc, updateDoc } from 'firebase/firestore';
+// doc is used to get the document from the database
+// updateDoc is used to update the document in the database
 
 type Message = {
   id?: string;
@@ -10,11 +17,12 @@ type Message = {
   sender: 'user' | 'assistant';
   timestamp: Date;
 };
-
+// Message is the type of the message object
 type BuildingInterfaceProps = {
   projectId: string;
   initialCode?: string;
 };
+// BuildingInterfaceProps is the type of the props of the component
 
 export default function BuildingInterface({ projectId, initialCode = '' }: BuildingInterfaceProps) {
   const [code, setCode] = useState(initialCode || 
@@ -36,7 +44,7 @@ export default function App() {
     </div>
   );
 }`);
-
+// initialCode is the initial code of the component
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
@@ -47,9 +55,11 @@ export default function App() {
       timestamp: new Date()
     }
   ]);
+  // messages is the messages of the component
   const [newMessage, setNewMessage] = useState('');
+  // newMessage is the new message of the component
   const chatEndRef = useRef<HTMLDivElement>(null);
-
+  // chatEndRef is the ref of the chat end of the component
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
     if (chatEndRef.current) {
@@ -61,13 +71,14 @@ export default function App() {
   const saveCode = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
-    
+    // setIsSaving is the is saving of the component
     try {
       const projectRef = doc(db, 'projects', projectId);
       await updateDoc(projectRef, {
         code: code,
         updatedAt: new Date()
       });
+      // updateDoc is used to update the document in the database
       
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
@@ -78,7 +89,7 @@ export default function App() {
       setIsSaving(false);
     }
   };
-
+  // saveCode is the save code of the component
   // Send a new message
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -88,7 +99,7 @@ export default function App() {
       sender: 'user',
       timestamp: new Date()
     };
-    
+    // userMessage is the user message of the component
     setMessages(prev => [...prev, userMessage]);
     setNewMessage('');
     
@@ -130,7 +141,7 @@ export default function App() {
       );
     }
   };
-
+  // renderPreview is the render preview of the component
   return (
     <div className="w-full h-full">
       <div className="flex justify-between items-center mb-4">

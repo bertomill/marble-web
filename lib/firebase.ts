@@ -1,7 +1,10 @@
 // Import the functions you need from the SDKs
 import { initializeApp } from "firebase/app";
+// Import the functions you need from the SDKs
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+// these functions are used to get the auth, google provider, and firestore
 import { getFirestore } from "firebase/firestore";
+// this function is used to get the analytics
 import { getAnalytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration

@@ -1,5 +1,7 @@
 'use client';
 
+// This is the AuthContext component
+
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   getAuth, 
@@ -14,10 +16,14 @@ import {
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
+// FirebaseError is the type of the error of the firebase
+
 type FirebaseError = {
   code: string;
   message: string;
 };
+
+// AuthContextType is the type of the context of the auth
 
 type AuthContextType = {
   user: User | null;
@@ -30,6 +36,7 @@ type AuthContextType = {
   clearError: () => void;
 };
 
+// AuthContext is the context of the auth
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -40,39 +47,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearError = () => setError(null);
 
+  // handleAuthError is the function of the auth
+
   const handleAuthError = (error: FirebaseError) => {
     console.error('Auth error:', error);
     switch (error.code) {
+      // auth/invalid-email is the error of the auth
       case 'auth/invalid-email':
         setError('Invalid email address format.');
         break;
+      // auth/user-disabled is the error of the auth
       case 'auth/user-disabled':
         setError('This user account has been disabled.');
         break;
+      // auth/user-not-found is the error of the auth
       case 'auth/user-not-found':
       case 'auth/wrong-password':
         setError('Invalid email or password.');
         break;
+      // auth/email-already-in-use is the error of the auth
       case 'auth/email-already-in-use':
         setError('This email is already in use.');
         break;
+      // auth/weak-password is the error of the auth
       case 'auth/weak-password':
         setError('Password should be at least 6 characters.');
         break;
+      // auth/operation-not-allowed is the error of the auth
       case 'auth/operation-not-allowed':
         setError('Operation not allowed.');
         break;
+      // auth/popup-closed-by-user is the error of the auth
       case 'auth/popup-closed-by-user':
         setError('Sign-in was canceled.');
         break;
+      // auth/network-request-failed is the error of the auth
       case 'auth/network-request-failed':
         setError('Network error. Please check your connection.');
         break;
       default:
+        // default is the error of the auth
         setError('An error occurred during authentication.');
         break;
     }
   };
+
+  // signInWithGoogle is the function of the auth
 
   const signInWithGoogle = async () => {
     try {
@@ -99,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // createAccount is the function of the auth
+
   const createAccount = async (email: string, password: string, name?: string) => {
     try {
       clearError();
@@ -116,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
+
+    // signOut is the function of the auth
   };
 
   const signOut = async () => {
@@ -133,8 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+    // unsubscribe is the function of the auth
+
     return () => unsubscribe();
   }, [auth]);
+
+  // return is the return of the auth
 
   return (
     <AuthContext.Provider value={{ 
@@ -152,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// useAuth is the function of the auth
+
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -159,3 +189,5 @@ export function useAuth() {
   }
   return context;
 } 
+
+// useAuth is the function of the auth
