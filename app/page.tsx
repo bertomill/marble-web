@@ -55,9 +55,9 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-b from-zinc-50 to-white relative overflow-hidden">
+      <section className="py-16 md:py-24 bg-stone-50 relative overflow-hidden">
         {/* Marble sketch background */}
-        <div className="absolute inset-0 flex justify-center items-center opacity-[0.07] pointer-events-none z-0">
+        <div className="absolute inset-0 flex justify-center items-center opacity-[0.15] pointer-events-none z-0">
           <div className="w-full md:w-3/4 2xl:w-1/2">
             <Image 
               src="/images/marble_sketch.png" 
