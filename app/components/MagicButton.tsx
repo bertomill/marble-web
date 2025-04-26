@@ -1,11 +1,11 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import { 
-  Button, 
   Tooltip, 
   TooltipContent, 
   TooltipProvider, 
   TooltipTrigger 
-} from '@/components/ui/button';
+} from '@/components/ui/tooltip';
 import { Sparkles } from 'lucide-react';
 
 interface MagicButtonProps {
@@ -13,7 +13,7 @@ interface MagicButtonProps {
   isGenerating: boolean;
   fieldName: string;
   tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'default' | 'lg' | 'icon';
 }
 
 const MagicButton: React.FC<MagicButtonProps> = ({

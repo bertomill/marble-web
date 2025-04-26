@@ -8,14 +8,12 @@ import { db } from '@/lib/firebase';
 import { doc, setDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import AuthStatus from '@/components/AuthStatus';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Pencil, Check, Code } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import { Label } from '@/components/ui/label';
 
 // TypeScript declarations for the Web Speech API
 declare global {
@@ -155,11 +153,12 @@ export default function NewProject() {
 
   // Update userFlow in formData when journeySteps change
   useEffect(() => {
-    const flowText = journeySteps
-      .map((step, index) => `${index + 1}. ${step.content}`)
-      .join('\n');
-    
-    setFormData(prev => ({ ...prev, userFlow: flowText }));
+    // Convert journey steps to text for storage compatibility
+    setFormData(prev => ({ 
+      ...prev, 
+      // Convert the actual userFlow array to just the steps array
+      userFlow: journeySteps 
+    }));
   }, [journeySteps]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -167,14 +166,6 @@ export default function NewProject() {
     setFormData(prev => ({
       ...prev,
       [name]: value,
-    }));
-  };
-
-  // Create a separate handler for userFlow
-  const handleUserFlowChange = (newUserFlow: UserJourneyStep[]) => {
-    setFormData(prev => ({
-      ...prev,
-      userFlow: newUserFlow,
     }));
   };
 
@@ -725,8 +716,8 @@ export default function NewProject() {
     // Save the edited content back to formData
     setFormData(prev => ({
       ...prev,
-      name: editedContent.name || prev.name,
-      description: editedContent.summary || prev.description,
+      name: typeof editedContent.name === 'string' ? editedContent.name : prev.name,
+      description: typeof editedContent.summary === 'string' ? editedContent.summary : prev.description,
       userFlow: prev.userFlow,
       projectType: prev.projectType,
       targetAudience: prev.targetAudience,
@@ -734,10 +725,7 @@ export default function NewProject() {
       competitors: prev.competitors
     }));
 
-    toast({
-      title: "Changes saved",
-      description: "Your project plan has been updated."
-    });
+    console.log("Changes saved. Your project plan has been updated.");
   };
 
   if (loading) {
@@ -958,7 +946,7 @@ export default function NewProject() {
                         </div>
                       </div>
                       
-                      <input type="hidden" name="userFlow" value={formData.userFlow} />
+                      <input type="hidden" name="userFlowText" value={JSON.stringify(formData.userFlow)} />
                     </div>
                   
                     <div className="mt-8">
