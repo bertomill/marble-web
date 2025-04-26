@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 // doc, setDoc, collection, serverTimestamp, getDocs, query, where are firebase function
@@ -358,23 +359,37 @@ export default function NewProject() {
       }
 
       const data = await response.json();
+      
+      // Update local state with competitors
       setFormData(prev => ({ ...prev, competitors: data.competitors }));
       
       // After finding competitors, update the project in Firestore
       if (user) {
         try {
+          console.log("Saving competitors to Firestore...");
+          // Find the project document directly by ID
           const projectsRef = collection(db, 'projects');
+          // First try to find projects matching this user and name
           const q = query(projectsRef, where("userId", "==", user.uid), where("name", "==", formData.name));
           const querySnapshot = await getDocs(q);
           
           if (!querySnapshot.empty) {
+            // Get the first matching project
             const projectDoc = querySnapshot.docs[0];
+            console.log("Updating project with ID:", projectDoc.id);
+            
+            // Update only the competitors field
             await setDoc(doc(db, 'projects', projectDoc.id), {
               competitors: data.competitors
             }, { merge: true });
+            
+            console.log("Successfully saved competitors to Firestore");
+          } else {
+            console.error("Could not find matching project to update");
           }
         } catch (error) {
           console.error("Error updating project with competitors:", error);
+          setSearchError('Failed to save competitors to database.');
         }
       }
     } catch (error) {
@@ -685,17 +700,20 @@ export default function NewProject() {
         } catch (jsonError) {
           console.error('Not valid JSON, attempting to extract structured data from text', jsonError);
           
-          // If direct parsing fails, try to extract structured data from markdown/text format
-          // Create a structured object from the text content
+          // If direct parsing fails, extract structured data from markdown/text format
           const extractedPlan = {
-            summary: extractSection(aiResponse, "Summary", "Key Features") || "",
-            keyFeatures: extractListItems(aiResponse, "Key Features", "Recommended Tech Stack") || [],
-            techStack: extractListItems(aiResponse, "Tech Stack", "build") || [],
+            summary: extractSection(aiResponse, "Summary", "Key Features") || extractSection(aiResponse, "Project Summary", "Key Features") || "",
+            keyFeatures: extractListItems(aiResponse, "Key Features", "Recommended Tech Stack") || 
+                         extractListItems(aiResponse, "Key Features", "Tech Stack") || [],
+            techStack: extractListItems(aiResponse, "Tech Stack", "build") || 
+                       extractListItems(aiResponse, "Recommended Tech Stack", "Data Schema") ||
+                       extractListItems(aiResponse, "Recommended Tech Stack", "Build Steps") || [],
             buildSteps: [], // Would need more complex parsing
             dataSchema: [], // Would need more complex parsing
             folderStructure: extractListItems(aiResponse, "Folder Structure", null) || []
           };
           
+          console.log("Extracted plan from text:", extractedPlan);
           setParsedPlan(extractedPlan as ProjectPlan);
           setEditedContent(extractedPlan);
         }
@@ -718,8 +736,8 @@ export default function NewProject() {
     const sectionText = extractSection(text, section, endSection);
     if (!sectionText) return [];
     
-    // Match list items that start with - or *
-    const listItemRegex = /(?:^|\n)[-*]\s*([^\n]+)/g;
+    // Match list items that start with - or * or numbers (1. 2. etc)
+    const listItemRegex = /(?:^|\n)(?:[-*]|\d+\.)\s*([^\n]+)/g;
     const items: string[] = [];
     let match;
     
@@ -786,7 +804,19 @@ export default function NewProject() {
       {/* Header */}
       <header className="py-4 px-6 border-b bg-white sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Marble</h1>
+          <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+            <div className="relative w-8 h-8">
+              <Image 
+                src="/images/marble_blocks_2.png" 
+                alt="Marble Blocks Logo" 
+                width={32} 
+                height={32} 
+                className="object-contain"
+                priority
+              />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Marble</h1>
+          </Link>
           <div className="flex items-center gap-4">
             <AuthStatus />
             <Button asChild variant="ghost" size="sm">
@@ -890,7 +920,7 @@ export default function NewProject() {
                             onChange={handleFormChange}
                             required
                             placeholder="Project Name"
-                            className="w-48 px-0 border-0 border-b border-dashed text-center bg-transparent focus:ring-0 focus-visible:ring-0"
+                            className="w-72 px-0 border-0 border-b border-dashed text-center bg-transparent focus:ring-0 focus-visible:ring-0"
                           />
                           {renderMagicButton('name')}
                           {renderMicButton('name')}
@@ -1029,7 +1059,7 @@ export default function NewProject() {
               {parsedPlan ? (
                 <div className="space-y-6">
                   <Card className="mb-6 w-full shadow-sm border border-gray-200">
-                    <CardHeader className="flex flex-row items-center justify-between bg-gray-50 border-b pb-3">
+                    <CardHeader className="flex flex-row items-center justify-between bg-gray-50 border-b py-2 px-4">
                       <div>
                         <CardTitle>Project Plan: {formData.name}</CardTitle>
                         <CardDescription>
@@ -1043,64 +1073,64 @@ export default function NewProject() {
                         Save Changes
                       </Button>
                     </CardHeader>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4">
                       {/* Dashboard Grid Layout */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {/* Project Summary */}
                         <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
-                          <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                          <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                             <div className="flex justify-between items-center">
                               <CardTitle className="text-lg font-semibold">Project Summary</CardTitle>
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
+                                size="sm"
                                 onClick={() => toggleEditSection('summary')}
-                                className="h-8 w-8 p-0"
+                                className="h-7 w-7 p-0"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </div>
                           </CardHeader>
-                          <CardContent className="p-4 bg-white flex-1">
+                          <CardContent className="p-3 bg-white flex-1">
                             {editingSections.summary ? (
                               <Textarea
                                 value={editedContent.summary || ''}
                                 onChange={e => handleContentChange('summary', e.target.value)}
-                                className="min-h-[120px] font-normal"
+                                className="min-h-[100px] font-normal"
                               />
                             ) : (
-                              <p className="text-gray-700 whitespace-pre-line">{editedContent.summary}</p>
+                              <p className="text-gray-700 whitespace-pre-line text-sm">{editedContent.summary}</p>
                             )}
                           </CardContent>
                         </Card>
                         
                         {/* Features */}
                         <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
-                          <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                          <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                             <div className="flex justify-between items-center">
                               <CardTitle className="text-lg font-semibold">Key Features</CardTitle>
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => toggleEditSection('keyFeatures')}
-                                className="h-8 w-8 p-0"
+                                className="h-7 w-7 p-0"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </div>
                           </CardHeader>
-                          <CardContent className="p-4 bg-white flex-1">
+                          <CardContent className="p-3 bg-white flex-1">
                             {editingSections.keyFeatures ? (
                               <Textarea
                                 value={Array.isArray(editedContent.keyFeatures) ? editedContent.keyFeatures.join('\n') : ''}
                                 onChange={e => handleContentChange('keyFeatures', e.target.value.split('\n'))}
-                                className="min-h-[150px] font-normal"
+                                className="min-h-[100px] font-normal"
                               />
                             ) : (
-                              <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                              <ul className="list-disc pl-4 space-y-0.5 text-gray-700 text-sm">
                                 {Array.isArray(editedContent.keyFeatures) && editedContent.keyFeatures.map((feature, index) => (
-                                  <li key={index} className="flex items-start mb-2">
-                                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
+                                  <li key={index} className="flex items-start mb-1">
+                                    <Check className="h-4 w-4 text-green-500 mr-1 mt-0.5 flex-shrink-0" />
                                     <span>{feature}</span>
                                   </li>
                                 ))}
@@ -1111,20 +1141,20 @@ export default function NewProject() {
                         
                         {/* Tech Stack */}
                         <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
-                          <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                          <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                             <div className="flex justify-between items-center">
                               <CardTitle className="text-lg font-semibold">Recommended Tech Stack</CardTitle>
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => toggleEditSection('techStack')}
-                                className="h-8 w-8 p-0"
+                                className="h-7 w-7 p-0"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </div>
                           </CardHeader>
-                          <CardContent className="p-4 bg-white flex-1">
+                          <CardContent className="p-3 bg-white flex-1">
                             {editingSections.techStack ? (
                               <Textarea
                                 className="min-h-20 focus:ring-0 focus:outline-none resize-none"
@@ -1140,7 +1170,7 @@ export default function NewProject() {
                             ) : (
                               <div className="flex flex-wrap">
                                 {Array.isArray(editedContent.techStack) && editedContent.techStack.map((tech, index) => (
-                                  <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2 mb-2">
+                                  <span key={index} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2 mb-1">
                                     <Code className="h-3 w-3 mr-1" />
                                     {tech}
                                   </span>
@@ -1153,20 +1183,20 @@ export default function NewProject() {
                         {/* Data Schema - Spans full width */}
                         {editedContent.dataSchema && (
                           <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow md:col-span-2 xl:col-span-3">
-                            <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                            <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                               <div className="flex justify-between items-center">
                                 <CardTitle className="text-lg font-semibold">Data Schema</CardTitle>
                                 <Button 
                                   variant="ghost" 
-                                  size="sm" 
+                                  size="sm"
                                   onClick={() => toggleEditSection('dataSchema')}
-                                  className="h-8 w-8 p-0"
+                                  className="h-7 w-7 p-0"
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               </div>
                             </CardHeader>
-                            <CardContent className="p-4 bg-white">
+                            <CardContent className="p-3 bg-white">
                               {editingSections.dataSchema ? (
                                 <Textarea
                                   value={JSON.stringify(editedContent.dataSchema, null, 2)}
@@ -1177,17 +1207,17 @@ export default function NewProject() {
                                       // Ignore invalid JSON until user completes editing
                                     }
                                   }}
-                                  className="min-h-[200px] font-mono text-sm"
+                                  className="min-h-[150px] font-mono text-sm"
                                 />
                               ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
                                   {Array.isArray(editedContent.dataSchema) && (editedContent.dataSchema as PlanEntity[]).map((entity, index) => (
-                                    <div key={index} className="border-l-2 border-green-500 pl-4 bg-white p-3 rounded shadow-sm">
-                                      <h4 className="font-medium text-green-700">{entity.entity}</h4>
-                                      <div className="grid grid-cols-1 gap-4 text-sm">
+                                    <div key={index} className="border-l-2 border-green-500 pl-3 bg-white p-2 rounded shadow-sm">
+                                      <h4 className="font-medium text-green-700 text-sm">{entity.entity}</h4>
+                                      <div className="grid grid-cols-1 gap-2 text-xs">
                                         <div>
                                           <h5 className="font-medium text-gray-600">Fields</h5>
-                                          <ul className="list-disc pl-5 text-gray-700">
+                                          <ul className="list-disc pl-4 text-gray-700">
                                             {Array.isArray(entity.fields) && entity.fields.map((field: string, fieldIndex: number) => (
                                               <li key={fieldIndex}>{field}</li>
                                             ))}
@@ -1209,20 +1239,20 @@ export default function NewProject() {
                         {/* Build Steps - Spans full width */}
                         {editedContent.buildSteps && (
                           <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow md:col-span-2 xl:col-span-3">
-                            <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                            <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                               <div className="flex justify-between items-center">
                                 <CardTitle className="text-lg font-semibold">Development Plan</CardTitle>
                                 <Button 
                                   variant="ghost" 
-                                  size="sm" 
+                                  size="sm"
                                   onClick={() => toggleEditSection('buildSteps')}
-                                  className="h-8 w-8 p-0"
+                                  className="h-7 w-7 p-0"
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               </div>
                             </CardHeader>
-                            <CardContent className="p-4 bg-white">
+                            <CardContent className="p-3 bg-white">
                               {editingSections.buildSteps ? (
                                 <Textarea
                                   value={JSON.stringify(editedContent.buildSteps, null, 2)}
@@ -1233,14 +1263,14 @@ export default function NewProject() {
                                       // Ignore invalid JSON until user completes editing
                                     }
                                   }}
-                                  className="min-h-[200px] font-mono text-sm"
+                                  className="min-h-[150px] font-mono text-sm"
                                 />
                               ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3">
                                   {Array.isArray(editedContent.buildSteps) && (editedContent.buildSteps as PlanPhase[]).map((phase, index) => (
-                                    <div key={index} className="border-l-2 border-indigo-500 pl-4 bg-white p-3 rounded shadow-sm">
-                                      <h4 className="font-medium text-indigo-700">{phase.phase}</h4>
-                                      <ul className="list-disc pl-5 text-gray-700 text-sm">
+                                    <div key={index} className="border-l-2 border-indigo-500 pl-3 bg-white p-2 rounded shadow-sm">
+                                      <h4 className="font-medium text-indigo-700 text-sm">{phase.phase}</h4>
+                                      <ul className="list-disc pl-4 text-gray-700 text-xs">
                                         {Array.isArray(phase.tasks) && phase.tasks.map((task: string, taskIndex: number) => (
                                           <li key={taskIndex}>{task}</li>
                                         ))}
@@ -1256,28 +1286,28 @@ export default function NewProject() {
                         {/* Folder Structure - Spans full width */}
                         {editedContent.folderStructure && (
                           <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow md:col-span-2 xl:col-span-3">
-                            <CardHeader className="px-4 py-3 bg-white border-b border-gray-200">
+                            <CardHeader className="px-4 py-2 bg-white border-b border-gray-200">
                               <div className="flex justify-between items-center">
                                 <CardTitle className="text-lg font-semibold">Folder Structure</CardTitle>
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
                                   onClick={() => toggleEditSection('folderStructure')}
-                                  className="h-8 w-8 p-0"
+                                  className="h-7 w-7 p-0"
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               </div>
                             </CardHeader>
-                            <CardContent className="p-4 bg-white">
+                            <CardContent className="p-3 bg-white">
                               {editingSections.folderStructure ? (
                                 <Textarea
                                   value={Array.isArray(editedContent.folderStructure) ? editedContent.folderStructure.join('\n') : ''}
                                   onChange={e => handleContentChange('folderStructure', e.target.value.split('\n'))}
-                                  className="min-h-[200px] font-mono text-sm"
+                                  className="min-h-[150px] font-mono text-sm"
                                 />
                               ) : (
-                                <pre className="bg-gray-50 p-3 rounded text-gray-700 text-sm overflow-x-auto border border-gray-100">
+                                <pre className="bg-gray-50 p-2 rounded text-gray-700 text-xs overflow-x-auto border border-gray-100">
                                   {Array.isArray(editedContent.folderStructure) && editedContent.folderStructure.join('\n')}
                                 </pre>
                               )}
