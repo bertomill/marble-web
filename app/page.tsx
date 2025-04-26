@@ -70,27 +70,44 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-            Build Your Website or App with AI
-          </h2>
-          <p className="text-xl text-zinc-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Marble helps you describe your business, define your goals, and identify your target audience.
-            Then we use AI to create a custom plan to build your digital presence.
-          </p>
-          {!user ? (
-            <Button
-              onClick={() => setAuthModalOpen(true)}
-              size="lg"
-              className="rounded-full px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
-              Get Started
-            </Button>
-          ) : (
-            <Button asChild size="lg" className="rounded-full px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-              <Link href="/dashboard">Go to Dashboard</Link>
-            </Button>
-          )}
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            <div className="md:w-1/2 text-center md:text-left">
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                Build Your Website or App with AI!
+              </h2>
+              <p className="text-xl text-zinc-600 mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed">
+                Marble helps you describe your business, define your goals, and identify your target audience.
+                Then we use AI to create a custom plan to build your digital presence.
+              </p>
+              {!user ? (
+                <Button
+                  onClick={() => setAuthModalOpen(true)}
+                  size="lg"
+                  className="rounded-full px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  Get Started
+                </Button>
+              ) : (
+                <Button asChild size="lg" className="rounded-full px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                  <Link href="/dashboard">Go to Dashboard</Link>
+                </Button>
+              )}
+            </div>
+            
+            <div className="md:w-1/2 flex justify-center">
+              <div className="relative w-full max-w-md">
+                <Image 
+                  src="/images/marble_blocks.png" 
+                  alt="Marble building blocks" 
+                  width={800} 
+                  height={800}
+                  className="w-full h-auto object-contain"
+                  priority
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
