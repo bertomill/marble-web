@@ -676,17 +676,59 @@ export default function NewProject() {
         // Try to extract JSON from the response if it's wrapped in markdown code blocks
         const jsonMatch = aiResponse.match(/```(?:json)?([\s\S]*?)```/);
         const jsonContent = jsonMatch ? jsonMatch[1].trim() : aiResponse;
-        const parsed = JSON.parse(jsonContent);
-        setParsedPlan(parsed);
         
-        // Initialize edited content with the parsed data
-        setEditedContent(parsed);
+        // First attempt to parse as JSON directly
+        try {
+          const parsed = JSON.parse(jsonContent);
+          setParsedPlan(parsed);
+          setEditedContent(parsed);
+        } catch (jsonError) {
+          console.error('Not valid JSON, attempting to extract structured data from text', jsonError);
+          
+          // If direct parsing fails, try to extract structured data from markdown/text format
+          // Create a structured object from the text content
+          const extractedPlan = {
+            summary: extractSection(aiResponse, "Summary", "Key Features") || "",
+            keyFeatures: extractListItems(aiResponse, "Key Features", "Recommended Tech Stack") || [],
+            techStack: extractListItems(aiResponse, "Tech Stack", "build") || [],
+            buildSteps: [], // Would need more complex parsing
+            dataSchema: [], // Would need more complex parsing
+            folderStructure: extractListItems(aiResponse, "Folder Structure", null) || []
+          };
+          
+          setParsedPlan(extractedPlan as ProjectPlan);
+          setEditedContent(extractedPlan);
+        }
       } catch (error) {
         console.error('Failed to parse AI response:', error);
         // If parsing fails, just display the raw text
       }
     }
   }, [aiResponse]);
+  
+  // Helper function to extract a section of text between two headings
+  const extractSection = (text: string, startSection: string, endSection: string | null): string => {
+    const startRegex = new RegExp(`(?:##?\\s*${startSection}|${startSection})[:\\s]*(.*?)(?:##?\\s*${endSection}|$)`, 'is');
+    const match = text.match(startRegex);
+    return match ? match[1].trim() : '';
+  };
+  
+  // Helper function to extract list items from a section
+  const extractListItems = (text: string, section: string, endSection: string | null): string[] => {
+    const sectionText = extractSection(text, section, endSection);
+    if (!sectionText) return [];
+    
+    // Match list items that start with - or *
+    const listItemRegex = /(?:^|\n)[-*]\s*([^\n]+)/g;
+    const items: string[] = [];
+    let match;
+    
+    while ((match = listItemRegex.exec(sectionText)) !== null) {
+      items.push(match[1].trim());
+    }
+    
+    return items;
+  };
 
   const toggleEditSection = (section: string) => {
     setEditingSections(prev => ({
