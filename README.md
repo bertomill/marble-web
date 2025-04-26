@@ -1,29 +1,44 @@
 # Marble
 
-Marble is an application that helps people create websites and apps by guiding them through describing their business, goals, target audience, and user experience. The app then leverages AI to generate a development plan that users can accept or modify before beginning the build process.
+Marble is a web application that helps users plan and manage their software projects. It provides an AI-powered planning tool to help define project requirements, generate development plans, and track progress.
 
 ## Features
 
-- Interactive business requirements gathering
-- AI-powered plan generation
-- Plan approval/rejection workflow
-- Side-by-side editor and preview interface
+- Create new project plans with AI assistance
+- Define project details including name, description, target audience, and value proposition
+- Outline user experience journeys
+- Get AI-generated technical recommendations and development plans
+- Find similar projects for inspiration
+- Track project progress through a dashboard
+- Decorative marble blocks background on the dashboard for enhanced visual appeal
 
-## Tech Stack
+## Technologies Used
 
-- Frontend: Next.js with React
-- Styling: TailwindCSS with shadcn/ui components
-- Database: Firebase Firestore
-- Authentication: Firebase Auth with Google provider
-- AI Integration: OpenAI API
+- Next.js 13+ with App Router
+- React
+- TypeScript
+- Firebase (Authentication and Firestore)
+- Tailwind CSS
+- shadcn/ui component library
+
+## Development
+
+To start the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Getting Started
 
 ### Environment Variables
 
-Create a `.env.local` file in the root directory with your Firebase configuration:
+Create a `.env.local` file in the root directory with your Firebase and AI service configurations:
 
 ```
+# Firebase configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
@@ -31,18 +46,31 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
 NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
+
+# AI services
+ANTHROPIC_API_KEY=your-anthropic-api-key
 ```
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Development Philosophy
 
 This project is built incrementally, starting with the most basic version and adding features step by step to ensure a solid understanding of all components and functionality.
+
+## User Experience
+
+The project creation process follows a natural, conversational flow:
+
+1. Users select the type of project they're building (website or mobile app)
+2. They fill in a narrative-style form that feels like completing a paragraph about their project
+   - Each field has a "magic button" that generates AI-powered content suggestions
+   - Voice input is available for all fields via the microphone button
+3. They describe the user journey using an interactive card-based interface with reorderable steps
+4. The AI generates a personalized response with recommendations
+5. Users can optionally search for similar successful projects for inspiration
+
+## API Routes
+
+The application includes several key API routes:
+
+- `/api/generate-field`: Generates AI-powered content for specific form fields
+- `/api/generate-plan`: Creates a comprehensive project plan based on user inputs
+- `/api/search-competitors`: Finds similar projects for competitive analysis

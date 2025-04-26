@@ -13,14 +13,22 @@ export async function POST(request: Request) {
   try {
     // get the body of the request
     const body = await request.json();
-    // get the projectName, projectDescription, and businessType from the body
-    const { projectName, projectDescription, businessType } = body;
+    // get the projectName, description, projectType, targetAudience, and valueProposition from the body
+    const { 
+      projectName, 
+      description, 
+      projectType = 'website', 
+      businessType, // Support for backward compatibility
+      targetAudience,
+      valueProposition 
+    } = body;
 
-    if (!projectName || !projectDescription || !businessType) {
-      // if the projectName, projectDescription, or businessType is not set, return an error
+    if (!projectName || !description) {
+      // if the projectName or description is not provided, return an error
       return NextResponse.json(
         // return a json object with an error message
-        { error: 'Missing required fields' }, 
+        { error: 'Missing required fields' },
+        { status: 400 } 
         // return a status of 400
       );
     }
@@ -32,9 +40,15 @@ export async function POST(request: Request) {
         // role is the role of the message
         role: 'user' as const,
         // content is the content of the message
-        content: `I'm creating a new ${businessType} called "${projectName}". Here's a description: "${projectDescription}".
+        content: `I'm creating a new ${projectType || 'website/app'} called "${projectName}". 
                   
-                  Please find 3-5 top competitors in this market space. For each competitor, provide:
+                  Project details:
+                  - Description: "${description}"
+                  ${businessType ? `- Business Type: ${businessType}` : ''}
+                  ${targetAudience ? `- Target Audience: "${targetAudience}"` : ''}
+                  ${valueProposition ? `- Value Proposition: "${valueProposition}"` : ''}
+                  
+                  Please find 3-4 top competitors in this market space. For each competitor, provide:
                   1. Name
                   2. Brief description of what they do
                   3. Website URL if available

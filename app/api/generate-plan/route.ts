@@ -74,8 +74,29 @@ export async function POST(request: NextRequest) {
         console.log('3. If using npm run dev, environment variables are being loaded correctly');
       }
       
+      //This is the project data from the request
+      const projectData = await request.json();
+      console.log("Project data received for mock plan:", JSON.stringify(projectData, null, 2));
+      
+      // Convert mock plan to text format to match the Claude response
+      const mockResponse = `
+# Development Plan for ${projectData?.name || 'Your Project'}
+
+## Summary
+${mockPlan.summary}
+
+## Key Features
+${mockPlan.features.map(feature => `- ${feature}`).join('\n')}
+
+## Recommended Tech Stack
+${mockPlan.techStack.map(tech => `- ${tech}`).join('\n')}
+
+## Timeline
+${mockPlan.timeline}
+      `;
+      
       return NextResponse.json(
-        { plan: mockPlan },
+        { response: mockResponse },
         { status: 200 }
       );
     }
@@ -122,11 +143,13 @@ export async function POST(request: NextRequest) {
       I need a detailed development plan for a project with the following details:
       
       Project Name: ${projectData.name}
+      ${projectData.projectType ? `Project Type: ${projectData.projectType} (website/app)` : ''}
       Description: ${projectData.description}
-      Business Type: ${projectData.businessType}
-      Goals: ${projectData.goals}
+      ${projectData.businessType ? `Business Type: ${projectData.businessType}` : ''}
+      ${projectData.goals ? `Goals: ${projectData.goals}` : ''}
       Target Audience: ${projectData.targetAudience}
-      User Flow: ${projectData.userFlow}
+      ${projectData.valueProposition ? `Value Proposition: ${projectData.valueProposition}` : ''}
+      User Flow: ${projectData.userFlow || 'Not specified'}
       
       Please provide a comprehensive plan that addresses these specific requirements and will help me build this project successfully.
       
@@ -135,6 +158,8 @@ export async function POST(request: NextRequest) {
       Design a data schema with the main entities needed for this application.
       Suggest a folder structure that follows modern best practices for the tech stack.
       Be concrete and specific in all your recommendations.
+      
+      Format your response as friendly conversational text, not JSON, with clear headings and bullet points.
     `;
 
     console.log("Calling Anthropic API...");
@@ -200,76 +225,10 @@ export async function POST(request: NextRequest) {
 
       console.log("Extracted response text (first 200 chars):", responseText.substring(0, 200));
       
-      // Parse the JSON from the response
-      // The response might be formatted as a code block, so we need to extract the JSON
-      let plan;
-      try {
-        // Try to parse the entire response as JSON
-        plan = JSON.parse(responseText);
-        console.log("Successfully parsed JSON directly");
-      } catch (error) {
-        const parseError = error instanceof Error ? error : new Error('Unknown parsing error');
-        console.log("Direct JSON parsing failed, trying to extract from code blocks:", parseError.message);
-        
-        // If that fails, try to extract JSON from code blocks
-        const jsonMatch = responseText.match(/```(?:json)?([\s\S]*?)```/);
-        if (jsonMatch && jsonMatch[1]) {
-          try {
-            plan = JSON.parse(jsonMatch[1].trim());
-            console.log("Successfully parsed JSON from code block");
-          } catch (codeBlockError) {
-            console.error("Failed to parse JSON from code block:", codeBlockError);
-            return NextResponse.json(
-              { error: "Failed to parse AI response as JSON from code block" },
-              { status: 500 }
-            );
-          }
-        } else {
-          console.log("No JSON code block found, trying to extract structured data");
-          
-          // If no JSON or code block found, try to create a structured response from the text
-          const summaryMatch = responseText.match(/summary[:\s]+(.*?)(?=features|techStack|\n\n)/i);
-          const featuresMatch = responseText.match(/features[:\s]+([\s\S]*?)(?=techStack|timeline|\n\n)/i);
-          const techStackMatch = responseText.match(/techStack[:\s]+([\s\S]*?)(?=timeline|\n\n)/i);
-          const timelineMatch = responseText.match(/timeline[:\s]+([\s\S]*?)(?=\n\n|$)/i);
-          
-          // More robust extraction
-          const extractFeatures = (text: string) => {
-            if (!text) return [];
-            // Extract bullet points, numbered lists or dash-prefixed items
-            const items = text.split(/\n+/).map(line => 
-              line.replace(/^[-*•]|\d+[.)]|\s+/, '').trim()
-            ).filter(item => item);
-            return items.length ? items : ["No features extracted"];
-          };
-          
-          plan = {
-            summary: summaryMatch && summaryMatch[1] ? summaryMatch[1].trim() : 
-              "A custom development plan tailored to your project requirements.",
-            features: featuresMatch && featuresMatch[1] ? 
-              extractFeatures(featuresMatch[1]) : 
-              ["User authentication and profiles", "Core functionality", "Analytics dashboard", "Mobile responsiveness"],
-            techStack: techStackMatch && techStackMatch[1] ? 
-              extractFeatures(techStackMatch[1]) : 
-              ["React.js for the frontend", "Node.js for the backend", "PostgreSQL for the database", "AWS for hosting"],
-            timeline: timelineMatch && timelineMatch[1] ? timelineMatch[1].trim() : 
-              "Development will take approximately 2-3 months, with an initial MVP in 4-6 weeks."
-          };
-        }
-      }
-
-      // Ensure plan has all required fields
-      plan = {
-        summary: plan.summary || "A detailed development plan for your project.",
-        features: Array.isArray(plan.features) && plan.features.length ? plan.features : 
-          ["User authentication and profiles", "Core functionality", "Analytics dashboard", "Mobile responsiveness"],
-        techStack: Array.isArray(plan.techStack) && plan.techStack.length ? plan.techStack : 
-          ["React.js for the frontend", "Node.js for the backend", "PostgreSQL for the database", "AWS for hosting"],
-        timeline: plan.timeline || "Development will take approximately 2-3 months, with an initial MVP in 4-6 weeks."
-      };
-
-      // Return the plan as JSON
-      return NextResponse.json({ plan });
+      // Return the response text directly instead of trying to parse JSON
+      return NextResponse.json({ 
+        response: responseText 
+      });
     } catch (error) {
       console.error('Error generating AI plan:', error);
       return NextResponse.json(

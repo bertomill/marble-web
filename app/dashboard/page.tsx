@@ -196,7 +196,49 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50">
+    <div className="flex flex-col min-h-screen bg-zinc-50 relative overflow-hidden">
+      {/* Marble Blocks Background */}
+      <div className="absolute pointer-events-none z-0 w-full h-full overflow-hidden">
+        {/* Top left circle */}
+        <div className="absolute top-24 left-10 w-40 h-40 rounded-full bg-stone-100/80 opacity-60"></div>
+        
+        {/* Top right rectangle with circle */}
+        <div className="absolute top-20 right-16 w-64 h-48 rounded-xl bg-stone-100/80 opacity-60"></div>
+        <div className="absolute top-16 right-10 w-12 h-12 rounded-full bg-stone-100/80 opacity-60"></div>
+        
+        {/* Triangle shape using CSS */}
+        <div className="absolute bottom-40 left-20 w-0 h-0 opacity-60"
+          style={{
+            borderLeft: '40px solid transparent',
+            borderRight: '40px solid transparent',
+            borderBottom: '80px solid rgba(245, 241, 237, 0.8)',
+          }}
+        ></div>
+        
+        {/* Bottom right small square */}
+        <div className="absolute bottom-20 right-40 w-32 h-32 rounded-xl bg-stone-100/80 opacity-60"></div>
+        
+        {/* Small stars */}
+        <div className="absolute top-60 right-60 w-8 h-8 opacity-60"
+          style={{
+            backgroundColor: 'rgba(245, 241, 237, 0.8)',
+            clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+          }}
+        ></div>
+        <div className="absolute bottom-32 left-60 w-6 h-6 opacity-60"
+          style={{
+            backgroundColor: 'rgba(245, 241, 237, 0.8)',
+            clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+          }}
+        ></div>
+        <div className="absolute top-80 right-20 w-5 h-5 opacity-60"
+          style={{
+            backgroundColor: 'rgba(245, 241, 237, 0.8)',
+            clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+          }}
+        ></div>
+      </div>
+
       {/* Header */}
       <header className="py-4 px-6 border-b bg-white sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
@@ -211,7 +253,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow p-6">
+      <main className="flex-grow p-6 relative z-1">
         <div className="container mx-auto max-w-5xl">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
@@ -369,7 +411,7 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 px-4 border-t bg-white mt-auto">
+      <footer className="py-6 px-4 border-t bg-white mt-auto relative z-1">
         <div className="container mx-auto text-center text-zinc-500 text-sm">
           <p>&copy; {new Date().getFullYear()} Marble. All rights reserved.</p>
         </div>

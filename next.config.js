@@ -9,6 +9,7 @@ const nextConfig = {
       },
     ],
   },
+  transpilePackages: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
 };
 
 module.exports = nextConfig; 
