@@ -9,237 +9,7 @@ import { kv } from '@vercel/kv';
 
 export const maxDuration = 180;
 
-// Enhanced logging utility
-const logger = {
-  requestId: '',
-  setRequestId: (id: string) => { logger.requestId = id; },
-  info: (message: string, data?: unknown) => {
-    console.log(`[INFO][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
-  },
-  error: (message: string, error?: unknown) => {
-    console.error(`[ERROR][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, error ? error : '');
-  },
-  warn: (message: string, data?: unknown) => {
-    console.warn(`[WARN][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
-  },
-  debug: (message: string, data?: unknown) => {
-    if (isDevelopment) {
-      console.debug(`[DEBUG][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
-    }
-  },
-  time: (label: string) => {
-    if (isDevelopment) {
-      console.time(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
-    }
-  },
-  timeEnd: (label: string) => {
-    if (isDevelopment) {
-      console.timeEnd(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
-    }
-  }
-};
-
-// Initialize Anthropic client with API key
-const apiKey = process.env.ANTHROPIC_API_KEY;
-// isDevelopment is a boolean that is true if the NODE_ENV is development
-console.log('Environment:', process.env.NODE_ENV);
-logger.info('Environment initialized', { env: process.env.NODE_ENV });
-
-// Function to get the Anthropic client
-function getAnthropicClient() {
-  if (!apiKey) {
-    logger.warn('ANTHROPIC_API_KEY not set in environment variables');
-    return null;
-  }
-  
-  logger.debug('Anthropic client initialized');
-  return new Anthropic({
-    apiKey
-  });
-}
-
-// Create a cache directory for development
-const cacheDir = path.join(process.cwd(), '.cache');
-if (isDevelopment && !fs.existsSync(cacheDir)) {
-  try {
-    fs.mkdirSync(cacheDir, { recursive: true });
-  } catch (err) {
-    console.error('Failed to create cache directory:', err);
-  }
-}
-
-// Function to generate a cache key
-function generateCacheKey(data: Record<string, unknown>): string {
-  const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
-  return `generate-code-${hash}`;
-}
-
-// Function to save response to cache
-async function saveToCache(key: string, data: Record<string, unknown>): Promise<void> {
-  if (isDevelopment) {
-    try {
-      console.log(`Saving to cache with key: ${key}`);
-      await kv.set(key, JSON.stringify(data));
-    } catch (err) {
-      console.error('Error saving to cache:', err);
-    }
-  }
-}
-
-// Function to get response from cache
-async function getFromCache(key: string): Promise<Record<string, unknown> | null> {
-  if (isDevelopment) {
-    try {
-      console.log(`Attempting to get from cache with key: ${key}`);
-      const data = await kv.get(key);
-      if (data) {
-        try {
-          return JSON.parse(data as string);
-        } catch (error) {
-          console.error('Error parsing cached data:', error);
-          return null;
-        }
-      }
-    } catch (err) {
-      console.error('Error getting from cache:', err);
-    }
-  }
-  return null;
-}
-
-// Mock code files for testing
-const mockCodeFiles = {
-  'index.html': {
-    content: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Website</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header>
-    <h1>Welcome to My Website</h1>
-    <nav>
-      <ul>
-        <li><a href="#home">Home</a></li>
-        <li><a href="#about">About</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-  </header>
-  <main>
-    <section id="home">
-      <h2>Home</h2>
-      <p>This is the home section of my website.</p>
-    </section>
-    <section id="about">
-      <h2>About</h2>
-      <p>Learn more about what we do.</p>
-    </section>
-    <section id="contact">
-      <h2>Contact</h2>
-      <p>Get in touch with us.</p>
-    </section>
-  </main>
-  <footer>
-    <p>&copy; 2024 My Website. All rights reserved.</p>
-  </footer>
-  <script src="script.js"></script>
-</body>
-</html>`,
-    language: 'html',
-  },
-  'styles.css': {
-    content: `/* Basic reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-  color: #333;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 30px;
-}
-
-nav ul {
-  display: flex;
-  list-style: none;
-}
-
-nav li {
-  margin-left: 20px;
-}
-
-nav a {
-  text-decoration: none;
-  color: #333;
-}
-
-nav a:hover {
-  color: #0066cc;
-}
-
-section {
-  margin-bottom: 40px;
-}
-
-h1, h2 {
-  margin-bottom: 15px;
-}
-
-footer {
-  text-align: center;
-  padding: 20px 0;
-  border-top: 1px solid #eee;
-  margin-top: 30px;
-}`,
-    language: 'css',
-  },
-  'script.js': {
-    content: `// Main JavaScript file
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Document is ready!');
-  
-  // Add smooth scrolling for navigation
-  document.querySelectorAll('nav a').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-      e.preventDefault();
-      
-      const href = this.getAttribute('href');
-      if (!href) return;
-      
-      const targetSection = document.querySelector(href);
-      if (targetSection) {
-        window.scrollTo({
-          top: targetSection.offsetTop - 70,
-          behavior: 'smooth'
-        });
-      }
-    });
-  });
-});`,
-    language: 'javascript',
-  }
-};
-
-// Mock files for testing
+// Define all mock file content
 const mockIndexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -450,17 +220,119 @@ const mockScriptJs = `document.addEventListener('DOMContentLoaded', () => {
     }
 });`;
 
-// Define mockFiles to fix reference error
+// Mock files object for testing - used later in the code
 const mockFiles = {
-  "index.html": mockIndexHtml,
-  "styles.css": mockStylesCss,
-  "script.js": mockScriptJs
+  "index.html": {
+    content: mockIndexHtml,
+    language: 'html',
+  },
+  "styles.css": {
+    content: mockStylesCss,
+    language: 'css',
+  },
+  "script.js": {
+    content: mockScriptJs,
+    language: 'javascript',
+  }
 };
 
-// Fix mockResponse - make sure it's used
-export const mockResponse = {
-  files: mockFiles
+// Enhanced logging utility
+const logger = {
+  requestId: '',
+  setRequestId: (id: string) => { logger.requestId = id; },
+  info: (message: string, data?: unknown) => {
+    console.log(`[INFO][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+  },
+  error: (message: string, error?: unknown) => {
+    console.error(`[ERROR][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, error ? error : '');
+  },
+  warn: (message: string, data?: unknown) => {
+    console.warn(`[WARN][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+  },
+  debug: (message: string, data?: unknown) => {
+    if (isDevelopment) {
+      console.debug(`[DEBUG][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+    }
+  },
+  time: (label: string) => {
+    if (isDevelopment) {
+      console.time(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
+    }
+  },
+  timeEnd: (label: string) => {
+    if (isDevelopment) {
+      console.timeEnd(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
+    }
+  }
 };
+
+// Initialize Anthropic client with API key
+const apiKey = process.env.ANTHROPIC_API_KEY;
+// isDevelopment is a boolean that is true if the NODE_ENV is development
+console.log('Environment:', process.env.NODE_ENV);
+logger.info('Environment initialized', { env: process.env.NODE_ENV });
+
+// Function to get the Anthropic client
+function getAnthropicClient() {
+  if (!apiKey) {
+    logger.warn('ANTHROPIC_API_KEY not set in environment variables');
+    return null;
+  }
+  
+  logger.debug('Anthropic client initialized');
+  return new Anthropic({
+    apiKey
+  });
+}
+
+// Create a cache directory for development
+const cacheDir = path.join(process.cwd(), '.cache');
+if (isDevelopment && !fs.existsSync(cacheDir)) {
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create cache directory:', err);
+  }
+}
+
+// Function to generate a cache key
+function generateCacheKey(data: Record<string, unknown>): string {
+  const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
+  return `generate-code-${hash}`;
+}
+
+// Function to save response to cache
+async function saveToCache(key: string, data: Record<string, unknown>): Promise<void> {
+  if (isDevelopment) {
+    try {
+      console.log(`Saving to cache with key: ${key}`);
+      await kv.set(key, JSON.stringify(data));
+    } catch (err) {
+      console.error('Error saving to cache:', err);
+    }
+  }
+}
+
+// Function to get response from cache
+async function getFromCache(key: string): Promise<Record<string, unknown> | null> {
+  if (isDevelopment) {
+    try {
+      console.log(`Attempting to get from cache with key: ${key}`);
+      const data = await kv.get(key);
+      if (data) {
+        try {
+          return JSON.parse(data as string);
+        } catch (error) {
+          console.error('Error parsing cached data:', error);
+          return null;
+        }
+      }
+    } catch (err) {
+      console.error('Error getting from cache:', err);
+    }
+  }
+  return null;
+}
 
 // POST endpoint for generating code
 export async function POST(req: NextRequest) {
@@ -504,7 +376,7 @@ export async function POST(req: NextRequest) {
     if (isDevelopment && !apiKey) {
       logger.info('Using mock response in development mode');
       logger.timeEnd('Total request processing time');
-      return NextResponse.json({ files: mockCodeFiles });
+      return NextResponse.json({ files: mockFiles });
     }
     
     // Prepare message for Anthropic
