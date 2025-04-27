@@ -887,7 +887,7 @@ h1 {
                     priority
                   />
                 </div>
-                <h1 className="text-xl font-bold tracking-tight ml-2">Marble</h1>
+                <h1 className="text-xl font-bold tracking-tight ml-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
               </Link>
               <span className="text-zinc-300 mx-2">|</span>
               <h2 className="text-zinc-600 truncate max-w-[200px]">{project?.name}</h2>
@@ -917,11 +917,11 @@ h1 {
                   <Image 
                     src="/images/marble_blocks_2.png" 
                     alt="Marble Logo" 
-                    width={64} 
-                    height={64} 
+                    width={240} 
+                    height={240} 
                     className="mx-auto mb-4" 
                   />
-                  <h2 className="text-2xl font-bold mb-2">Ready to Build Your Project?</h2>
+                  <h2 className="text-2xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Ready to Build Your Project?</h2>
                   <p className="text-zinc-600 mb-4">
                     Marble will generate the initial code structure for your {project?.projectType} 
                     based on your project requirements.
@@ -984,7 +984,7 @@ h1 {
                   priority
                 />
               </div>
-              <h1 className="text-xl font-bold tracking-tight ml-2">Marble</h1>
+              <h1 className="text-xl font-bold tracking-tight ml-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
             </Link>
             <span className="text-zinc-300 mx-2">|</span>
             <h2 className="text-zinc-600 truncate max-w-[200px]">{project?.name}</h2>
