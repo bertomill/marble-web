@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
+export const maxDuration = 60;
+
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
 // isDevelopment is a boolean that is true if the NODE_ENV is development
