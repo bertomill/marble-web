@@ -15,6 +15,8 @@ Marble is a web application that helps users plan and manage their software proj
 - Toast notifications for user feedback
 - Decorative marble blocks background on the dashboard for enhanced visual appeal
 - Consistent header design across all pages with clickable logo for easy navigation
+- Code editor with Claude 3.7 AI-powered code generation capabilities
+- Simplified code preview directly on the project page
 
 ## Technologies Used
 
@@ -24,7 +26,9 @@ Marble is a web application that helps users plan and manage their software proj
 - Firebase (Authentication and Firestore)
 - Tailwind CSS
 - shadcn/ui component library
+- Anthropic Claude 3.7 for AI-powered code generation
 - OpenAI Web Search for competitor research
+- Monaco Editor for code editing
 
 ## Development
 
@@ -41,6 +45,19 @@ The project includes an ESLint configuration file (.eslintrc.json) that sets spe
 - React Hook dependency rules are set to "warn"
 
 ## Recent Updates
+
+### Simplified Code Preview on Project Page
+- Added a code preview section directly on the project page
+- Implemented a simplified file explorer to navigate project files
+- Included a toggle between code view and rendered preview
+- Provided quick access to the full code editor for more advanced editing
+
+### Enhanced Code Generation with Claude 3.7
+- Added a "Generate with Claude" button to create AI-generated code directly in the editor
+- Created a dedicated API endpoint for single-file code generation
+- Integrated file-specific code generation that considers project context and existing files
+- Improved error handling and feedback for code generation processes
+- Added real-time preview of generated code within the editor environment
 
 ### Enhanced Project Experience
 - Added UI toast components for better user feedback
@@ -93,6 +110,9 @@ The project creation process follows a natural, conversational flow:
 3. They describe the user journey using an interactive card-based interface with reorderable steps
 4. The AI generates a personalized response with recommendations
 5. Users can optionally search for similar successful projects for inspiration
+6. Users can preview code samples directly on the project details page 
+7. Users can generate code for their project and edit it in the dedicated code editor
+8. For individual files, users can use the "Generate with Claude" button to have AI create or improve specific files
 
 ## API Routes
 
@@ -102,3 +122,4 @@ The application includes several key API routes:
 - `/api/generate-plan`: Creates a comprehensive project plan based on user inputs
 - `/api/search-competitors`: Finds similar projects for competitive analysis
 - `/api/generate-code`: Generates starter code files based on project specifications
+- `/api/generate-file`: Generates code for individual files using Claude 3.7
