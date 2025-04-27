@@ -43,6 +43,7 @@ The project includes an ESLint configuration file (.eslintrc.json) that sets spe
 ## Recent Updates
 
 ### Enhanced Project Experience
+- Added AI-powered user journey text generation for more comprehensive user flow descriptions
 - Added UI toast components for better user feedback
 - Enhanced competitor search with loading progress indicators and status messages
 - Improved caching mechanism for AI-generated responses
@@ -50,13 +51,16 @@ The project includes an ESLint configuration file (.eslintrc.json) that sets spe
 - Fixed build issues for better deployment
 - Added robust JSON response handling for Claude API interactions
 - Implemented code generation for projects with intelligent error recovery
+- Improved UI with larger project logo for better visibility
 
 ### Code Generation Capabilities
+- Enhanced code generation with Claude 3.5 Haiku
 - Added a code editor feature with Monaco Editor integration
 - Implemented AI-powered code generation for project scaffolding
 - Built a file explorer for managing project files
 - Added robust JSON response parsing with automatic error correction
 - Created fallback mechanisms for when AI services are unavailable
+- Added a 'Generate with Claude' button to create AI-generated code directly in the editor
 
 ## Getting Started
 
@@ -90,7 +94,8 @@ The project creation process follows a natural, conversational flow:
 2. They fill in a narrative-style form that feels like completing a paragraph about their project
    - Each field has a "magic button" that generates AI-powered content suggestions
    - Voice input is available for all fields via the microphone button
-3. They describe the user journey using an interactive card-based interface with reorderable steps
+3. They describe the user journey using a text area that allows for a detailed narrative of how users will interact with the application
+   - Full user journey text can be auto-generated with a single click
 4. The AI generates a personalized response with recommendations
 5. Users can optionally search for similar successful projects for inspiration
 
