@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import AuthStatus from '@/components/AuthStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +14,8 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from "@/components/ui/use-toast";
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
-import { File, Save, ArrowLeft, Check } from 'lucide-react';
+import { Save, ArrowLeft, Check } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
 // Dynamically import the CodeEditor component to avoid hydration issues
 const CodeEditor = dynamic(() => import('@/components/CodeEditor'), { 
@@ -28,12 +29,24 @@ const FileExplorer = dynamic(() => import('@/components/FileExplorer'), {
   loading: () => <div className="h-full w-full bg-zinc-100 animate-pulse rounded" />
 });
 
-// Define project data interface
+// Define interfaces for project data
+interface UserJourneyStep {
+  id: string;
+  title: string;
+  description: string;
+}
+
 interface ProjectData {
+  id: string;
   name: string;
   description: string;
   projectType: string;
   status: string;
+  createdAt: Timestamp;
+  userId: string;
+  targetAudience?: string;
+  valueProposition?: string;
+  userFlow?: UserJourneyStep[];
   files?: Record<string, FileData>;
 }
 
@@ -629,8 +642,8 @@ h1 {
     setBuildStatus('Preparing to build project...');
     
     try {
-      // Simulate build process
-      let buildProgressInterval = setInterval(() => {
+      // Start progress simulation
+      const buildProgressInterval = setInterval(() => {
         setBuildProgress(prev => {
           const newProgress = prev + 5;
           if (newProgress >= 95) {
@@ -657,49 +670,105 @@ h1 {
         });
       }, 500);
       
-      // Create the files based on project type
-      const projectFiles = createDefaultFiles(project.projectType);
-      
-      // Wait a moment to simulate the build process
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      
-      // Update project with files and change status
-      await updateDoc(doc(db, 'projects', projectId), {
-        files: projectFiles,
-        status: 'building_complete'
+      // Make API call to generate code
+      const response = await fetch('/api/generate-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: params.id as string,
+          name: project.name,
+          description: project.description,
+          projectType: project.projectType,
+          targetAudience: project.targetAudience || '',
+          valueProposition: project.valueProposition || '',
+          userFlow: project.userFlow || []
+        }),
       });
-      
-      // Update local state
-      setProject({
-        ...project,
-        files: projectFiles,
-        status: 'building_complete'
-      });
-      
-      // Set the first file as current
-      const firstFileName = Object.keys(projectFiles)[0];
-      setCurrentFile(firstFileName);
-      setCurrentFileContent(projectFiles[firstFileName].content);
-      setCurrentLanguage(projectFiles[firstFileName].language);
-      
-      // Complete the build
-      setBuildProgress(100);
-      setBuildStatus('Build completed successfully!');
-      setIsBuildMode(false);
-      
-      // Clear interval if it's still running
-      clearInterval(buildProgressInterval);
-      
-      toast({
-        title: "Build completed",
-        description: "Your project has been built successfully!"
-      });
-      
-      // Slight delay before showing the editor
-      setTimeout(() => {
-        setIsBuilding(false);
-      }, 1000);
-      
+
+      if (response.ok) {
+        const data = await response.json();
+        const generatedFiles: Record<string, FileData> = data.files;
+        
+        // Update project with generated files
+        await updateDoc(doc(db, 'projects', projectId), {
+          files: generatedFiles,
+          status: 'built'
+        });
+        
+        // Update local state
+        setProject({
+          ...project,
+          files: generatedFiles,
+          status: 'built'
+        });
+        
+        // Set the first file as current
+        const firstFileName = Object.keys(generatedFiles)[0];
+        setCurrentFile(firstFileName);
+        setCurrentFileContent(generatedFiles[firstFileName].content);
+        setCurrentLanguage(generatedFiles[firstFileName].language);
+        
+        // Complete the build
+        setBuildProgress(100);
+        setBuildStatus('Build completed successfully!');
+        setIsBuildMode(false);
+        
+        // Clear interval if it's still running
+        clearInterval(buildProgressInterval);
+        
+        toast({
+          title: "Build completed",
+          description: "Your project has been built successfully!"
+        });
+        
+        // Slight delay before showing the editor
+        setTimeout(() => {
+          setIsBuilding(false);
+        }, 1000);
+      } else {
+        // Fall back to default files if API fails
+        const defaultFiles = createDefaultFiles(project.projectType);
+        const generatedFiles: Record<string, FileData> = defaultFiles;
+        
+        // Update project with generated files
+        await updateDoc(doc(db, 'projects', projectId), {
+          files: generatedFiles,
+          status: 'built'
+        });
+        
+        // Update local state
+        setProject({
+          ...project,
+          files: generatedFiles,
+          status: 'built'
+        });
+        
+        // Set the first file as current
+        const firstFileName = Object.keys(generatedFiles)[0];
+        setCurrentFile(firstFileName);
+        setCurrentFileContent(generatedFiles[firstFileName].content);
+        setCurrentLanguage(generatedFiles[firstFileName].language);
+        
+        // Complete the build
+        setBuildProgress(100);
+        setBuildStatus('Build completed successfully!');
+        setIsBuildMode(false);
+        
+        // Clear interval if it's still running
+        clearInterval(buildProgressInterval);
+        
+        toast({
+          title: "Build completed",
+          description: "Your project has been built successfully!"
+        });
+        
+        // Slight delay before showing the editor
+        setTimeout(() => {
+          setIsBuilding(false);
+        }, 1000);
+      }
     } catch (error) {
       console.error('Error building project:', error);
       setBuildStatus('Failed to build project. Please try again.');
