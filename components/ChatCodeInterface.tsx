@@ -114,18 +114,20 @@ export default function ChatCodeInterface({
 
       // If code content was extracted, show a button to apply it
       if (data.codeContent) {
-        // Show toast with apply button
+        // Show toast notification
         toast({
           title: "Code generated",
-          description: "The AI has generated code that you can apply to the current file.",
-          action: (
-            <Button 
-              variant="outline" 
-              onClick={() => onApplyCode(data.codeContent)}
-              className="bg-indigo-600 text-white hover:bg-indigo-700"
-            >
-              Apply Code
-            </Button>
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>The AI has generated code that you can apply to the current file.</p>
+              <Button 
+                variant="outline" 
+                onClick={() => onApplyCode(data.codeContent)}
+                className="bg-indigo-600 text-white hover:bg-indigo-700 self-start"
+              >
+                Apply Code
+              </Button>
+            </div>
           )
         });
       }
@@ -160,9 +162,8 @@ export default function ChatCodeInterface({
     
     return parts.map((part, index) => {
       if (part.startsWith('```') && part.endsWith('```')) {
-        // Extract the code and language
+        // Extract the code and language identifier (not currently used but kept for future enhancements)
         const match = part.match(/```(\w*)\s*([\s\S]*?)```/);
-        const language = match ? match[1] : '';
         const code = match ? match[2] : part.slice(3, -3);
         
         return (

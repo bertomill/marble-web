@@ -5,7 +5,7 @@ export const maxDuration = 60;
 
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
-const isDevelopment = process.env.NODE_ENV === 'development';
+// isDevelopment is defined but not used in this file
 
 // Function to get the Anthropic client
 function getAnthropicClient() {
@@ -65,7 +65,7 @@ The user is currently working in: ${currentFile || 'No file selected'}
     let filesContext = '';
     if (projectFiles && Object.keys(projectFiles).length > 0) {
       filesContext = 'Project files:\n';
-      Object.entries(projectFiles).forEach(([fileName, fileData]) => {
+      Object.entries(projectFiles).forEach(([fileName]) => {
         if (fileName === currentFile) {
           filesContext += `- ${fileName} (current file)\n`;
         } else {

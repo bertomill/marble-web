@@ -541,7 +541,15 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     
     console.log('Received response from Anthropic');
     
-    let responseContent = response.content[0].text;
+    // Extract the response text properly
+    let responseContent = '';
+    if (Array.isArray(response.content)) {
+      for (const contentBlock of response.content) {
+        if (contentBlock.type === 'text') {
+          responseContent += contentBlock.text;
+        }
+      }
+    }
     
     // Parse JSON from response
     let jsonData;
