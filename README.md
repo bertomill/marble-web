@@ -10,7 +10,11 @@ Marble is a web application that helps users plan and manage their software proj
 - Get AI-generated technical recommendations and development plans
 - Find similar projects for inspiration
 - Track project progress through a dashboard
+- Enhanced competitor search with visualized progress
+- Caching mechanism for AI-generated responses
+- Toast notifications for user feedback
 - Decorative marble blocks background on the dashboard for enhanced visual appeal
+- Consistent header design across all pages with clickable logo for easy navigation
 
 ## Technologies Used
 
@@ -20,6 +24,7 @@ Marble is a web application that helps users plan and manage their software proj
 - Firebase (Authentication and Firestore)
 - Tailwind CSS
 - shadcn/ui component library
+- OpenAI Web Search for competitor research
 
 ## Development
 
@@ -29,7 +34,20 @@ To start the development server:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ESLint Configuration
+
+The project includes an ESLint configuration file (.eslintrc.json) that sets specific rules for the codebase:
+- TypeScript unused variables are set to "warn" instead of "error"
+- React Hook dependency rules are set to "warn"
+
+## Recent Updates
+
+### Enhanced Project Experience
+- Added UI toast components for better user feedback
+- Enhanced competitor search with loading progress indicators and status messages
+- Improved caching mechanism for AI-generated responses
+- Added detailed ESLint configuration
+- Fixed build issues for better deployment
 
 ## Getting Started
 
