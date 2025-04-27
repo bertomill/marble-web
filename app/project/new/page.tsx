@@ -1073,12 +1073,23 @@ export default function NewProject() {
                           Here&apos;s your personalized development plan
                         </CardDescription>
                       </div>
-                      <Button 
-                        onClick={saveProjectUpdates}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                      >
-                        Save Changes
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <Button 
+                          onClick={saveProjectUpdates}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          Save Changes
+                        </Button>
+                        <Button
+                          asChild
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Link href={`/project/${newProjectId}/code`}>
+                            <Code className="h-4 w-4 mr-2" />
+                            Generate Code
+                          </Link>
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-4">
                       {/* Dashboard Grid Layout */}
@@ -1324,6 +1335,40 @@ export default function NewProject() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Code Generation Card */}
+                  <Card className="mb-6 border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-xl font-bold mb-2 text-emerald-700 flex items-center gap-2">
+                            <Code className="h-5 w-5" />
+                            Ready to Generate Code?
+                          </h3>
+                          <p className="text-zinc-600 mb-2">
+                            Let&apos;s turn your project plan into functional code! 
+                            Our AI will generate a complete codebase based on your specifications.
+                          </p>
+                          <ul className="text-sm text-zinc-500 list-disc list-inside mb-4">
+                            <li>Creates all necessary files and folder structure</li>
+                            <li>Implements core functionality based on your requirements</li>
+                            <li>Uses the recommended tech stack from your plan</li>
+                            <li>Fully editable in the browser after generation</li>
+                          </ul>
+                        </div>
+                        <Button
+                          asChild
+                          size="lg"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Link href={`/project/${newProjectId}/code`}>
+                            <Code className="h-4 w-4 mr-2" />
+                            Generate Code
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
                 <Card className="mb-6">
@@ -1402,11 +1447,11 @@ export default function NewProject() {
                         <div className="flex justify-center space-x-4">
                           <Button 
                             asChild
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
                           >
                             <Link href={`/project/${newProjectId}/code`}>
                               <Code className="h-4 w-4 mr-2" />
-                              Build My Project
+                              Generate Code
                             </Link>
                           </Button>
                           <Button onClick={goToDashboard} variant="outline">
