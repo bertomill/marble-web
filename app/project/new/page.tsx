@@ -241,6 +241,8 @@ export default function NewProject() {
       
       // Set up progress simulation for the long-running AI operation
       let progressInterval: NodeJS.Timeout | null = null;
+      
+      // Define the function to start the progress simulation
       const startProgressSimulation = () => {
         // Start at 25% and gradually increase to 60% while waiting for API response
         setProgress(25);

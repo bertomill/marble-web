@@ -111,7 +111,7 @@ if (isDevelopment) {
 }
 
 // Generate a hash from request data to use as a cache key
-const getCacheKey = (data: any): string => {
+const getCacheKey = (data: Record<string, unknown>): string => {
   const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
   return `plan-${hash}.json`;
 };
