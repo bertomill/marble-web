@@ -69,6 +69,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const projectId = use(params).id;
 
   // Fetch project data
@@ -224,6 +225,42 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  // Handle generating a new AI plan
+  const handleGeneratePlan = async () => {
+    if (!user || !project || !projectId) return;
+    
+    setIsGeneratingPlan(true);
+    
+    try {
+      // Implement the logic to generate a new AI plan
+      // This is a placeholder and should be replaced with the actual implementation
+      console.log('Generating new AI plan');
+      
+      // After generating the plan, update the project state
+      setProject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: 'planning_complete'
+        };
+      });
+      
+      // Parse the new AI response
+      const newPlan = {
+        summary: 'New AI-generated summary',
+        keyFeatures: ['New feature 1', 'New feature 2'],
+        techStack: ['New tech 1', 'New tech 2'],
+        dataSchema: [],
+        buildSteps: []
+      } as ProjectPlan;
+      setParsedPlan(newPlan);
+    } catch (error) {
+      console.error('Error generating new AI plan:', error);
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   // Loading state
   if (loading || isLoading) {
     return (
@@ -284,7 +321,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   className="text-3xl font-bold h-auto py-1"
                 />
               ) : (
-                project?.name
+                <div className="flex items-center gap-3">
+                  {project?.name}
+                  <Badge variant="outline" className="capitalize">
+                    {project?.status?.replace('_', ' ')}
+                  </Badge>
+                </div>
               )}
             </h2>
             <div className="flex items-center space-x-2">
@@ -297,43 +339,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   {isSaving ? 'Saving...' : 'Save'}
                 </Button>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
                   onClick={() => toggleEditSection('name')}
-                  className="mr-2"
                 >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Edit
+                  <Pencil className="h-4 w-4" />
                 </Button>
               )}
-              
-              {project.status === 'planning' || project.status === 'planning_complete' ? (
-                <Button 
-                  variant="default"
-                  size="sm"
-                  asChild
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <Link href={`/project/${projectId}/code`}>
-                    <Code className="h-4 w-4 mr-1" />
-                    Build Project
-                  </Link>
-                </Button>
-              ) : (
-                <Button 
-                  variant="default"
-                  size="sm"
-                  asChild
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <Link href={`/project/${projectId}/code`}>
-                    <Code className="h-4 w-4 mr-1" />
-                    Open Code Editor
-                  </Link>
-                </Button>
-              )}
-              <Badge variant="outline">{project?.status}</Badge>
             </div>
           </div>
           
@@ -736,6 +749,53 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </CardContent>
             </Card>
           )}
+
+          {/* Code Editor Access Card - show when project has built code */}
+          {(project?.status === 'built' || project?.status === 'building_complete') && (
+            <Card className="mb-8 border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-bold mb-2 text-indigo-700 flex items-center gap-2">
+                      <Code className="h-5 w-5" />
+                      Project Code
+                    </h3>
+                    <p className="text-zinc-600 mb-2">
+                      Your project code has been generated and is ready to edit.
+                      Access the code editor to view and modify your files.
+                    </p>
+                    <ul className="text-sm text-zinc-500 list-disc list-inside mb-4">
+                      <li>All code is saved automatically to your project</li>
+                      <li>Edit files and add new ones in the code editor</li>
+                      <li>Download your project files for local development</li>
+                    </ul>
+                  </div>
+                  <Button
+                    asChild
+                    size="lg"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    <Link href={`/project/${projectId}/code`}>
+                      <Code className="h-4 w-4 mr-2" />
+                      Open Code Editor
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="space-y-8">
+            {project.status === 'planning' && (
+              <Button 
+                onClick={handleGeneratePlan}
+                disabled={isGeneratingPlan}
+                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+              >
+                {isGeneratingPlan ? 'Generating...' : 'Generate AI Plan'}
+              </Button>
+            )}
+          </div>
         </div>
       </main>
 

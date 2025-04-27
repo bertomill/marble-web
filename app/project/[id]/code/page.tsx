@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from "@/components/ui/use-toast";
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
-import { Save, ArrowLeft, Check } from 'lucide-react';
+import { Save, ArrowLeft, Check, Download } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 
 // Dynamically import the CodeEditor component to avoid hydration issues
@@ -781,6 +781,68 @@ h1 {
     }
   };
 
+  // Download all project files as a ZIP
+  const downloadProjectFiles = () => {
+    if (!project?.files || Object.keys(project.files).length === 0) {
+      toast({
+        title: "No files to download",
+        description: "Your project doesn't have any files to download yet.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Get the files to download
+    const files = project.files;
+
+    // Dynamically import JSZip
+    import('jszip').then((JSZipModule) => {
+      const JSZip = JSZipModule.default;
+      const zip = new JSZip();
+      
+      // Add all files to the zip
+      Object.entries(files).forEach(([fileName, fileData]) => {
+        zip.file(fileName, fileData.content);
+      });
+      
+      // Generate the zip file
+      zip.generateAsync({ type: 'blob' }).then((content: Blob) => {
+        // Create a download link
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${project.name.replace(/\s+/g, '-').toLowerCase()}-files.zip`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+        
+        toast({
+          title: "Download started",
+          description: "Your project files are being downloaded."
+        });
+      }).catch((err: Error) => {
+        console.error('Error generating zip:', err);
+        toast({
+          title: "Download failed",
+          description: "There was a problem downloading your files.",
+          variant: "destructive"
+        });
+      });
+    }).catch((err: Error) => {
+      console.error('Error loading JSZip:', err);
+      toast({
+        title: "Download failed",
+        description: "Could not load the ZIP utility. Please try again later.",
+        variant: "destructive"
+      });
+    });
+  };
+
   // Loading state
   if (loading || isLoading) {
     return (
@@ -937,6 +999,14 @@ h1 {
             >
               <Save className="h-4 w-4 mr-1" />
               Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadProjectFiles}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Download
             </Button>
             <Button 
               variant="ghost" 
