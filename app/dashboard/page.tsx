@@ -244,7 +244,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="py-4 px-6 border-b bg-white sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Marble</h1>
+          <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
           <div className="flex items-center gap-4">
             <AuthStatus />
             <Button asChild variant="ghost" size="sm">
@@ -258,7 +258,7 @@ export default function Dashboard() {
       <main className="flex-grow p-6 relative z-1">
         <div className="container mx-auto max-w-5xl">
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Dashboard</h2>
             <Button asChild>
               <Link href="/project/new">Create New Project</Link>
             </Button>
