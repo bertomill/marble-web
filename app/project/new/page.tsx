@@ -93,6 +93,7 @@ interface ProjectFormData {
   valueProposition: string;
   userFlow: UserJourneyStep[];
   competitors: Competitor[];
+  userJourneyText: string;
 }
 
 // For the editedContent state
@@ -117,11 +118,8 @@ export default function NewProject() {
     valueProposition: '',
     userFlow: [],
     competitors: [],
+    userJourneyText: '',
   });
-  // State for journey steps as an array of step objects
-  const [journeySteps, setJourneySteps] = useState<UserJourneyStep[]>([
-    { id: '1', content: '' }
-  ]);
   const [aiResponse, setAiResponse] = useState('');
   const [showCompetitorSearch, setShowCompetitorSearch] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,7 +128,6 @@ export default function NewProject() {
   const [isListening, setIsListening] = useState(false);
   const [currentField, setCurrentField] = useState<string | null>(null);
   const [speechSupported, setSpeechSupported] = useState(true);
-  const [newStepContent, setNewStepContent] = useState('');
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   // Add progress tracking states
   const [progress, setProgress] = useState(0);
@@ -154,15 +151,31 @@ export default function NewProject() {
     }
   }, [user, loading, router]);
 
-  // Update userFlow in formData when journeySteps change
+  // Convert userJourneyText to steps array for compatibility with the expected API format
+  const convertJourneyTextToSteps = useCallback(() => {
+    if (!formData.userJourneyText) return [];
+    
+    // Split by sentences or periods
+    const sentences = formData.userJourneyText
+      .split(/\.\s+|\.\n+|;\s+|;\n+/)
+      .filter(s => s.trim().length > 0)
+      .map(s => s.trim())
+      .map((content, i) => ({
+        id: String(i + 1),
+        content: content.endsWith('.') ? content : `${content}.`
+      }));
+    
+    return sentences.length > 0 ? sentences : [];
+  }, [formData.userJourneyText]);
+  
+  // Update userFlow whenever userJourneyText changes
   useEffect(() => {
-    // Convert journey steps to text for storage compatibility
-    setFormData(prev => ({ 
-      ...prev, 
-      // Convert the actual userFlow array to just the steps array
-      userFlow: journeySteps 
+    const steps = convertJourneyTextToSteps();
+    setFormData(prev => ({
+      ...prev,
+      userFlow: steps
     }));
-  }, [journeySteps]);
+  }, [formData.userJourneyText, convertJourneyTextToSteps]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -170,59 +183,6 @@ export default function NewProject() {
       ...prev,
       [name]: value,
     }));
-  };
-
-  // Handle journey step content change
-  const handleStepChange = (id: string, content: string) => {
-    setJourneySteps(steps => 
-      steps.map(step => step.id === id ? { ...step, content } : step)
-    );
-  };
-
-  // Add a new journey step
-  const addJourneyStep = () => {
-    if (!newStepContent.trim()) return;
-    
-    const newId = String(journeySteps.length + 1);
-    setJourneySteps([...journeySteps, { id: newId, content: newStepContent }]);
-    setNewStepContent('');
-  };
-
-  // Remove a journey step
-  const removeJourneyStep = (id: string) => {
-    if (journeySteps.length <= 1) return;
-    
-    setJourneySteps(steps => steps.filter(step => step.id !== id));
-  };
-
-  // Move a step up in the list
-  const moveStepUp = (id: string) => {
-    setJourneySteps(steps => {
-      const index = steps.findIndex(step => step.id === id);
-      if (index <= 0) return steps;
-      
-      const newSteps = [...steps];
-      const temp = newSteps[index];
-      newSteps[index] = newSteps[index - 1];
-      newSteps[index - 1] = temp;
-      
-      return newSteps;
-    });
-  };
-
-  // Move a step down in the list
-  const moveStepDown = (id: string) => {
-    setJourneySteps(steps => {
-      const index = steps.findIndex(step => step.id === id);
-      if (index >= steps.length - 1) return steps;
-      
-      const newSteps = [...steps];
-      const temp = newSteps[index];
-      newSteps[index] = newSteps[index + 1];
-      newSteps[index + 1] = temp;
-      
-      return newSteps;
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -284,7 +244,7 @@ export default function NewProject() {
           description: formData.description,
           targetAudience: formData.targetAudience,
           valueProposition: formData.valueProposition,
-          userFlow: formData.userFlow,
+          userJourneyText: formData.userJourneyText,
         }),
       });
 
@@ -317,8 +277,7 @@ export default function NewProject() {
         userId: user.uid,
         createdAt: serverTimestamp(),
         status: 'planning', // planning, building, completed
-        aiResponse: data.response,
-        journeySteps // store the structured journey steps
+        aiResponse: data.response
       });
       
       // Save the ID of the new project
@@ -346,6 +305,33 @@ export default function NewProject() {
   const searchCompetitors = async () => {
     setIsSearching(true);
     setSearchError('');
+    setProgress(15);
+    setStatusMessage('Starting competitor search...');
+    
+    // Set up progress simulation for the search operation
+    let progressInterval: NodeJS.Timeout | null = null;
+    
+    const startProgressSimulation = () => {
+      let currentProgress = 15;
+      progressInterval = setInterval(() => {
+        if (currentProgress < 75) {
+          currentProgress += 5;
+          setProgress(currentProgress);
+          
+          // Update messages at certain thresholds to provide more feedback
+          if (currentProgress === 25) {
+            setStatusMessage('Searching for similar projects...');
+          } else if (currentProgress === 45) {
+            setStatusMessage('Analyzing competitor features...');
+          } else if (currentProgress === 65) {
+            setStatusMessage('Preparing competitor insights...');
+          }
+        }
+      }, 600); // Update more frequently for the competitor search
+    };
+    
+    startProgressSimulation();
+    
     try {
       const response = await fetch('/api/search-competitors', {
         method: 'POST',
@@ -360,15 +346,26 @@ export default function NewProject() {
           valueProposition: formData.valueProposition,
         }),
       });
-
+      
+      // Clear the progress simulation interval
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
       if (!response.ok) {
         throw new Error('Failed to search competitors');
       }
-
+      
+      setProgress(80);
+      setStatusMessage('Found similar projects! Processing results...');
+      
       const data = await response.json();
       
       // Update local state with competitors
       setFormData(prev => ({ ...prev, competitors: data.competitors }));
+      
+      setProgress(90);
+      setStatusMessage('Saving competitor data...');
       
       // After finding competitors, update the project in Firestore
       if (user) {
@@ -399,9 +396,26 @@ export default function NewProject() {
           setSearchError('Failed to save competitors to database.');
         }
       }
+      
+      setProgress(100);
+      setStatusMessage('Competitor research complete!');
+      
+      // Reset progress after a short delay
+      setTimeout(() => {
+        setProgress(0);
+        setStatusMessage('');
+      }, 1000);
+      
     } catch (error) {
+      // Clear the progress simulation interval if it exists
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
       console.error('Error searching competitors:', error);
       setSearchError('Failed to search for competitors. Please try again.');
+      setProgress(0);
+      setStatusMessage('');
     } finally {
       setIsSearching(false);
     }
@@ -424,25 +438,12 @@ export default function NewProject() {
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       
-      // Check if it's a journey step field
-      if (fieldName.startsWith('journey-step-')) {
-        const stepId = fieldName.replace('journey-step-', '');
-        const step = journeySteps.find(s => s.id === stepId);
-        
-        if (step) {
-          const newContent = step.content ? `${step.content} ${transcript}` : transcript;
-          handleStepChange(stepId, newContent);
-        }
-      } else if (fieldName === 'new-step') {
-        setNewStepContent(prev => prev ? `${prev} ${transcript}` : transcript);
-      } else {
-        // For other form fields
-        const currentValue = formData[fieldName as keyof typeof formData] as string;
-        setFormData(prev => ({ 
-          ...prev, 
-          [fieldName]: currentValue ? `${currentValue} ${transcript}` : transcript
-        }));
-      }
+      // For form fields
+      const currentValue = formData[fieldName as keyof typeof formData] as string;
+      setFormData(prev => ({ 
+        ...prev, 
+        [fieldName]: currentValue ? `${currentValue} ${transcript}` : transcript
+      }));
     };
     
     recognition.onend = () => {
@@ -457,7 +458,7 @@ export default function NewProject() {
     };
     
     recognition.start();
-  }, [speechSupported, formData, journeySteps]);
+  }, [speechSupported, formData]);
 
   // Stop listening
   const stopListening = () => {
@@ -537,84 +538,6 @@ export default function NewProject() {
     router.push('/dashboard');
   };
 
-  // Component for a journey step card - enhance with numbers and better visuals
-  const JourneyStepCard = ({ step, index, total }: { step: UserJourneyStep; index: number; total: number }) => {
-    return (
-      <div className="mb-3">
-        <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-0">
-            <div className="flex">
-              {/* Step number */}
-              <div className="flex-none bg-indigo-50 border-r border-gray-200 flex flex-col items-center justify-center px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-semibold">
-                  {index + 1}
-                </div>
-              </div>
-              
-              <div className="flex-1 p-3">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 relative">
-                    <Textarea
-                      value={step.content}
-                      onChange={(e) => handleStepChange(step.id, e.target.value)}
-                      placeholder={`Step ${index + 1}: Describe what the user does...`}
-                      className="min-h-[60px] pr-10 resize-none border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    />
-                    {renderMagicButton(`journey-step-${step.id}`)}
-                    {renderMicButton(`journey-step-${step.id}`)}
-                  </div>
-                  
-                  <div className="flex flex-col space-y-1 p-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveStepUp(step.id)}
-                      disabled={index === 0}
-                      className="p-1 h-7 w-7 text-gray-400 hover:text-gray-600"
-                      aria-label="Move step up"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 15l-6-6-6 6"/>
-                      </svg>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveStepDown(step.id)}
-                      disabled={index === total - 1}
-                      className="p-1 h-7 w-7 text-gray-400 hover:text-gray-600"
-                      aria-label="Move step down"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </Button>
-                  </div>
-                  
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeJourneyStep(step.id)}
-                    className="text-gray-400 hover:text-red-500"
-                    disabled={journeySteps.length <= 1}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <path d="M18 6L6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
   // Generate field content with AI
   const generateFieldContent = async (fieldName: string) => {
     setGeneratingField(fieldName);
@@ -637,17 +560,11 @@ export default function NewProject() {
 
       const data = await response.json();
       
-      if (fieldName === 'new-step') {
-        setNewStepContent(data.content);
-      } else if (fieldName.startsWith('journey-step-')) {
-        const stepId = fieldName.replace('journey-step-', '');
-        handleStepChange(stepId, data.content);
-      } else {
-        setFormData(prev => ({ 
-          ...prev, 
-          [fieldName]: data.content
-        }));
-      }
+      // Update form field with generated content
+      setFormData(prev => ({ 
+        ...prev, 
+        [fieldName]: data.content
+      }));
     } catch (error) {
       console.error('Error generating field content:', error);
     } finally {
@@ -822,7 +739,7 @@ export default function NewProject() {
                 priority
               />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Marble</h1>
+            <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
           </Link>
           <div className="flex items-center gap-4">
             <AuthStatus />
@@ -839,7 +756,7 @@ export default function NewProject() {
           {!showCompetitorSearch ? (
             <>
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold tracking-tight">Create New Project</h2>
+                <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Create New Project</h2>
                 {speechSupported && (
                   <Button
                     type="button"
@@ -982,50 +899,25 @@ export default function NewProject() {
                     <div className="mt-8">
                       <h3 className="text-lg font-semibold mb-2">User Experience Journey</h3>
                       <p className="text-sm text-gray-600 mb-4">
-                        Create and order the cards to outline a step-by-step journey of how a user will interact with your {formData.projectType}.
+                        Describe how a user will interact with your {formData.projectType}, from initial discovery to achieving their goals.
                       </p>
                       
-                      <div className="space-y-2 mb-5">
-                        {journeySteps.map((step, index) => (
-                          <JourneyStepCard 
-                            key={step.id} 
-                            step={step} 
-                            index={index} 
-                            total={journeySteps.length} 
-                          />
-                        ))}
-                      </div>
-                      
                       <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Add New Journey Step</h4>
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 relative">
-                            <Textarea
-                              id="new-step"
-                              value={newStepContent}
-                              onChange={(e) => setNewStepContent(e.target.value)}
-                              placeholder="Add a new step here..."
-                              className="min-h-[60px] pr-10 resize-none border-gray-200 border-dashed focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            {renderMagicButton('new-step')}
-                            {renderMicButton('new-step')}
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={addJourneyStep}
-                            disabled={!newStepContent.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white mt-2"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                            Add Step
-                          </Button>
+                        <div className="relative">
+                          <Textarea
+                            id="userJourneyText"
+                            name="userJourneyText"
+                            value={formData.userJourneyText || ''}
+                            onChange={handleFormChange}
+                            placeholder="Describe the user journey in detail. For example: First, the user discovers the website through social media. Then, they browse the product catalog and add items to their cart. Finally, they complete the checkout process and receive a confirmation email."
+                            className="min-h-[150px] pr-10 border-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                            rows={6}
+                          />
+                          {renderMagicButton('userJourneyText')}
+                          {renderMicButton('userJourneyText')}
                         </div>
                       </div>
                       
-                      <input type="hidden" name="userFlowText" value={JSON.stringify(formData.userFlow)} />
                     </div>
                   
                     <div className="mt-8">
@@ -1350,21 +1242,23 @@ export default function NewProject() {
                   {formData.competitors.length === 0 ? (
                     <div className="flex flex-col items-center p-6 text-center">
                       <p className="mb-4">Would you like us to find some similar successful {formData.projectType}s on the market for inspiration?</p>
+                      
+                      {isSearching && (
+                        <div className="w-full mb-4">
+                          <div className="mb-1">
+                            <p className="text-zinc-600 font-medium">{statusMessage}</p>
+                          </div>
+                          <Progress value={progress} className="h-2" />
+                        </div>
+                      )}
+                      
                       <div className="flex gap-3">
                         <Button
                           onClick={searchCompetitors}
                           disabled={isSearching}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white"
                         >
-                          {isSearching ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Searching...
-                            </>
-                          ) : 'Yes, Find Examples'}
+                          {isSearching ? 'Searching...' : 'Yes, Find Examples'}
                         </Button>
                         <Button 
                           variant="outline" 
