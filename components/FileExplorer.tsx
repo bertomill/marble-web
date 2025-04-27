@@ -153,7 +153,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
       
       <div className="mt-2 space-y-1">
-        {Object.entries(files).map(([fileName]) => (
+        {Object.keys(files).map((fileName) => (
           <div 
             key={fileName}
             className={`flex items-center py-1 px-2 rounded text-sm ${

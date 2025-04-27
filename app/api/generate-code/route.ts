@@ -3,18 +3,27 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { isDevelopment } from '@/lib/utils';
+import { z } from 'zod';
+import { saveProject } from '@/lib/db';
+import { kv } from '@vercel/kv';
+
+export const maxDuration = 60;
 
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
 // isDevelopment is a boolean that is true if the NODE_ENV is development
-const isDevelopment = process.env.NODE_ENV === 'development';
-
 console.log('Environment:', process.env.NODE_ENV);
 
 // Function to get the Anthropic client
 function getAnthropicClient() {
+  if (!apiKey) {
+    console.log('ANTHROPIC_API_KEY not set in environment variables');
+    return null;
+  }
+  
   return new Anthropic({
-    apiKey: apiKey || 'dummy-key-for-development'
+    apiKey
   });
 }
 
@@ -29,38 +38,41 @@ if (isDevelopment && !fs.existsSync(cacheDir)) {
 }
 
 // Function to generate a cache key
-function generateCacheKey(data: ProjectInput): string {
+function generateCacheKey(data: Record<string, unknown>): string {
   const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
-  return `generate-code-${hash}.json`;
+  return `generate-code-${hash}`;
 }
 
 // Function to save response to cache
-function saveToCache(key: string, data: string): void {
-  if (!isDevelopment) return;
-  
-  try {
-    const filePath = path.join(cacheDir, key);
-    fs.writeFileSync(filePath, data);
-    console.log(`Cached response to ${filePath}`);
-  } catch (err) {
-    console.error('Failed to cache response:', err);
+async function saveToCache(key: string, data: any): Promise<void> {
+  if (isDevelopment) {
+    try {
+      console.log(`Saving to cache with key: ${key}`);
+      await kv.set(key, JSON.stringify(data));
+    } catch (err) {
+      console.error('Error saving to cache:', err);
+    }
   }
 }
 
 // Function to get response from cache
-function getFromCache(key: string): string | null {
-  if (!isDevelopment) return null;
-  
-  try {
-    const filePath = path.join(cacheDir, key);
-    if (fs.existsSync(filePath)) {
-      console.log(`Loading response from cache: ${filePath}`);
-      return fs.readFileSync(filePath, 'utf-8');
+async function getFromCache(key: string): Promise<any | null> {
+  if (isDevelopment) {
+    try {
+      console.log(`Attempting to get from cache with key: ${key}`);
+      const data = await kv.get(key);
+      if (data) {
+        try {
+          return JSON.parse(data as string);
+        } catch (error) {
+          console.error('Error parsing cached data:', error);
+          return null;
+        }
+      }
+    } catch (err) {
+      console.error('Error getting from cache:', err);
     }
-  } catch (err) {
-    console.error('Failed to read from cache:', err);
   }
-  
   return null;
 }
 
@@ -196,351 +208,499 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 };
 
-// Fix 'any' type on line 32:33 by adding a proper type interface
-interface ProjectInput {
-  projectId: string;
-  name: string;
-  description: string;
-  projectType: string;
-  targetAudience?: string;
-  valueProposition?: string;
-  userFlow?: Array<{id: string; content?: string; title?: string; description?: string}>;
-  aiResponse?: string;
+// Mock files for testing
+const mockIndexHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Todo App</h1>
+        <div class="input-container">
+            <input type="text" id="todoInput" placeholder="Add a new task...">
+            <button id="addBtn">Add</button>
+        </div>
+        <ul id="todoList"></ul>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>`;
+
+const mockStylesCss = `* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
 }
 
-// Fix the line with 'tempObj' using 'let' on line 411:9
-const attemptJsonRepair = (jsonStr: string) => {
-  console.log("Attempting to repair JSON:", jsonStr.substring(0, 100) + "...");
-  
-  try {
-    // Try parsing as is first
-    return JSON.parse(jsonStr);
-  } catch {
-    console.log("Initial JSON parse failed, attempting repairs...");
-    
-    // Basic repair: Fix missing colons
-    let repairedJson = jsonStr.replace(/("[\w\s]+")\s+(["{[])/g, '$1: $2');
-    
-    // Fix unescaped quotes within strings
-    repairedJson = repairedJson.replace(/([^\\])"/g, '$1\\"');
-    repairedJson = repairedJson.replace(/^"/, '\\"');
-    
-    // Fix trailing commas in objects/arrays
-    repairedJson = repairedJson.replace(/,\s*([\]}])/g, '$1');
-    
-    try {
-      return JSON.parse(repairedJson);
-    } catch {
-      console.log("Basic repairs failed, trying extraction...");
-      
-      // Try to extract valid JSON
-      const matches = jsonStr.match(/{.*}/);
-      if (matches && matches[0]) {
-        try {
-          return JSON.parse(matches[0]);
-        } catch {
-          console.log("Extraction failed, trying to rebuild...");
-          
-          const jsonObject = rebuildJsonFromMalformedInput(jsonStr);
-          if (jsonObject) {
-            return jsonObject;
-          }
-          
-          console.log("All repairs failed.");
-          throw new Error("Unable to repair malformed JSON");
-        }
-      }
-      
-      console.log("No JSON-like structure found.");
-      throw new Error("No valid JSON-like structure found");
-    }
-  }
-};
+body {
+    background-color: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    padding-top: 50px;
+}
 
-// Fix error handling in all catch blocks
-const rebuildJsonFromMalformedInput = (input: string) => {
-  try {
-    // Try to find key-value pairs
-    const tempObj: Record<string, unknown> = {};
-    const keyValueRegex = /"([^"]+)"\s*:\s*("[^"]*"|[0-9]+|true|false|\{[^}]*\}|\[[^\]]*\])/g;
-    let match;
+.container {
+    width: 500px;
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.input-container {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px 0 0 4px;
+    font-size: 16px;
+}
+
+button {
+    padding: 10px 15px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+ul {
+    list-style-type: none;
+}
+
+li {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+li:last-child {
+    border-bottom: none;
+}
+
+.delete-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background-color: #d32f2f;
+}
+
+.completed {
+    text-decoration: line-through;
+    color: #888;
+}`;
+
+const mockScriptJs = `document.addEventListener('DOMContentLoaded', () => {
+    const todoInput = document.getElementById('todoInput');
+    const addBtn = document.getElementById('addBtn');
+    const todoList = document.getElementById('todoList');
     
-    while ((match = keyValueRegex.exec(input)) !== null) {
-      const key = match[1];
-      let value = match[2];
-      
-      try {
-        // If it looks like an object or array, try to parse it
-        if ((value.startsWith('{') && value.endsWith('}')) || 
-            (value.startsWith('[') && value.endsWith(']'))) {
-          try {
-            value = JSON.parse(value);
-          } catch {
-            // Keep as string if parsing fails
-          }
+    // Load todos from localStorage
+    let todos = JSON.parse(localStorage.getItem('todos')) || [];
+    
+    // Render initial todos
+    renderTodos();
+    
+    // Add event listener to the Add button
+    addBtn.addEventListener('click', addTodo);
+    
+    // Add event listener for the Enter key
+    todoInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            addTodo();
         }
-        // Otherwise, try to parse it directly
-        else {
-          try {
-            value = JSON.parse(value);
-          } catch {
-            // Keep as string if parsing fails
-          }
-        }
+    });
+    
+    // Function to add a new todo
+    function addTodo() {
+        const todoText = todoInput.value.trim();
         
-        tempObj[key] = value;
-      } catch {
-        // Skip problematic key-value pairs
-      }
+        if (todoText !== '') {
+            todos.push({
+                id: Date.now(),
+                text: todoText,
+                completed: false
+            });
+            
+            saveToLocalStorage();
+            renderTodos();
+            todoInput.value = '';
+        }
     }
     
-    if (Object.keys(tempObj).length > 0) {
-      return tempObj;
+    // Function to toggle todo completion status
+    function toggleTodo(id) {
+        todos = todos.map(todo => {
+            if (todo.id === id) {
+                return {
+                    ...todo,
+                    completed: !todo.completed
+                };
+            }
+            return todo;
+        });
+        
+        saveToLocalStorage();
+        renderTodos();
     }
     
-    return null;
-  } catch {
-    return null;
+    // Function to delete a todo
+    function deleteTodo(id) {
+        todos = todos.filter(todo => todo.id !== id);
+        
+        saveToLocalStorage();
+        renderTodos();
+    }
+    
+    // Function to save todos to localStorage
+    function saveToLocalStorage() {
+        localStorage.setItem('todos', JSON.stringify(todos));
+    }
+    
+    // Function to render todos
+    function renderTodos() {
+        todoList.innerHTML = '';
+        
+        todos.forEach(todo => {
+            const li = document.createElement('li');
+            
+            // Create a span for the todo text
+            const todoText = document.createElement('span');
+            todoText.textContent = todo.text;
+            if (todo.completed) {
+                todoText.classList.add('completed');
+            }
+            
+            // Add click event to toggle completion
+            todoText.addEventListener('click', () => toggleTodo(todo.id));
+            
+            // Create delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.classList.add('delete-btn');
+            deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
+            
+            // Append elements to the list item
+            li.appendChild(todoText);
+            li.appendChild(deleteBtn);
+            
+            // Append list item to the todo list
+            todoList.appendChild(li);
+        });
+    }
+});`;
+
+// Mock response for testing
+const mockResponse = {
+  files: {
+    "index.html": mockIndexHtml,
+    "styles.css": mockStylesCss,
+    "script.js": mockScriptJs
   }
 };
 
-export async function POST(request: NextRequest) {
+// Handle POST requests to /api/generate-code
+export async function POST(request: Request) {
   try {
-    // Get project data from the request
-    const projectData = await request.json();
-    const { 
-      projectId, 
-      name, 
-      description, 
-      projectType, 
-      targetAudience, 
-      valueProposition, 
-      userFlow, 
-      aiResponse 
-    } = projectData;
-
-    if (!projectId || !name || !description) {
+    console.log('POST request received in generate-code');
+    const body = await request.json();
+    console.log('Received body:', body);
+    
+    // Validate the request body using Zod
+    const schema = z.object({
+      projectName: z.string(),
+      projectType: z.string(),
+      projectDescription: z.string().optional(),
+      userEmail: z.string().optional(),
+      userId: z.string().optional(),
+      projectId: z.string().optional()
+    });
+    
+    const parsed = schema.safeParse(body);
+    
+    if (!parsed.success) {
+      console.error('Validation error:', parsed.error);
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Invalid request body', details: parsed.error },
         { status: 400 }
       );
     }
-
-    // Create a cache key for this request
-    const cacheKey = generateCacheKey(projectData);
     
-    // Check cache first (in development mode)
-    const cachedResponse = getFromCache(cacheKey);
-    if (cachedResponse) {
-      try {
-        const parsedResponse = JSON.parse(cachedResponse);
-        return NextResponse.json({ files: parsedResponse });
-      } catch (e) {
-        console.error('Failed to parse cached response:', e);
-        // Continue with API call if parsing fails
+    const { projectName, projectType, projectDescription, userId, userEmail, projectId } = parsed.data;
+    
+    // Check cache first to avoid API calls during development/testing
+    const cacheKey = generateCacheKey({
+      projectName,
+      projectType,
+      projectDescription
+    });
+    
+    const cachedData = await getFromCache(cacheKey);
+    
+    if (cachedData) {
+      console.log('Using cached response');
+      
+      if (userId && userEmail && projectId) {
+        console.log('Saving project to database');
+        await saveProject(userId, userEmail, projectId, {
+          name: projectName,
+          type: projectType,
+          description: projectDescription || '',
+          files: cachedData.files
+        });
       }
+      
+      return NextResponse.json(cachedData);
     }
-
-    // Check for API key
-    if (!apiKey) {
-      console.warn('ANTHROPIC_API_KEY is not set, using mock code files for development');
+    
+    // Get Anthropic client
+    const anthropic = getAnthropicClient();
+    
+    if (!anthropic && isDevelopment) {
+      console.log('Using mock response in development mode');
+      await saveToCache(cacheKey, mockResponse);
       
-      if (isDevelopment) {
-        console.log('In development mode, please check your .env.local file has the correct ANTHROPIC_API_KEY value');
-        saveToCache(cacheKey, JSON.stringify(mockCodeFiles));
+      if (userId && userEmail && projectId) {
+        console.log('Saving project to database');
+        await saveProject(userId, userEmail, projectId, {
+          name: projectName,
+          type: projectType,
+          description: projectDescription || '',
+          files: mockResponse.files
+        });
       }
       
+      return NextResponse.json(mockResponse);
+    }
+    
+    if (!anthropic) {
       return NextResponse.json(
-        { files: mockCodeFiles },
-        { status: 200 }
+        { error: 'Anthropic API key not configured' },
+        { status: 500 }
       );
     }
+    
+    // Prepare message for Anthropic
+    const userMessage = `You are a senior full-stack developer. You need to create a simple ${projectType} application based on this description: "${projectDescription || projectName}".
 
-    // Initialize Anthropic client
-    const anthropic = getAnthropicClient();
+Please generate the code for this application. Focus on clean, well-structured code with good comments. The application should be built using standard HTML, CSS, and vanilla JavaScript - no frameworks.
 
-    // Parse the AI response if available
-    let parsedAiResponse = null;
-    if (aiResponse) {
-      try {
-        parsedAiResponse = JSON.parse(aiResponse);
-      } catch (e) {
-        console.error('Failed to parse AI response:', e);
-        // Continue without parsed AI response
-      }
-    }
+Your response should contain a JSON object with the following structure:
+{
+  "files": {
+    "index.html": "... HTML code here ...",
+    "styles.css": "... CSS code here ...",
+    "script.js": "... JavaScript code here ...",
+    // Add any additional files if needed
+  }
+}
 
-    // Create a system prompt for Claude
-    const systemPrompt = `You are an expert web developer tasked with generating code files for a ${projectType || 'web'} project. Your goal is to create the initial code structure based on the project description and requirements.
+Keep your code as simple as possible while fulfilling the requirements. Don't explain the code, just provide the JSON response.`;
 
-    Generate the essential files for this project that would provide a strong starting point for the user. The code should be production-ready, following best practices and modern standards for the technology stack.
+    console.log('Sending message to Anthropic:', userMessage);
     
-    For a website project, typically include:
-    - HTML files for the main pages
-    - CSS files for styling
-    - JavaScript files for interactivity
+    // Call Anthropic API
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-haiku-20240307",
+      max_tokens: 4000,
+      temperature: 0.2,
+      system: "You are an expert full-stack developer who creates clean, well-structured code with good comments. Always return valid, well-formed JSON responses exactly as requested.",
+      messages: [
+        { role: "user", content: userMessage }
+      ]
+    });
     
-    For a web app project, typically include:
-    - Main React/Next.js components
-    - CSS or styled-components for styling
-    - JavaScript/TypeScript utility functions
+    console.log('Received response from Anthropic');
     
-    Your response MUST be a valid JSON object with the following structure:
-    {
-      "filename1": {
-        "content": "The complete file content here",
-        "language": "programming language (html, css, javascript, typescript, etc.)"
-      },
-      "filename2": {
-        "content": "The complete file content here",
-        "language": "programming language (html, css, javascript, typescript, etc.)"
-      }
-    }
+    let responseContent = response.content[0].text;
     
-    !!!CRITICAL FORMATTING REQUIREMENTS!!!
-    1. Output ONLY a raw JSON object with NO explanation text whatsoever
-    2. Your response must start with { and end with } with no other characters
-    3. Every property name must be in double quotes followed immediately by a colon
-    4. NO markdown formatting, NO code blocks with backticks, NO comments outside the code content
-    5. Properly escape ALL quotes within code strings using backslash: \\"
-    6. Escape newlines in code as \\n
-    7. The entire response must be parseable by JSON.parse()
-    
-    Example of correct format:
-    {"index.html":{"content":"<!DOCTYPE html>\\n<html>\\n<head>\\n  <title>Example</title>\\n</head>\\n<body>\\n  <h1>Hello World</h1>\\n</body>\\n</html>","language":"html"}}
-    
-    Additional guidelines:
-    1. Generate complete, functional code files that work together
-    2. Follow modern best practices for the given technology stack
-    3. Include helpful comments in the code to explain key sections
-    4. Ensure the code accurately reflects the project requirements
-    5. Focus on quality over quantity - include only essential files
-    6. Make the code clean, readable, and maintainable
-    7. For complex projects, focus on the core functionality first
-    
-    If you fail to produce valid, parseable JSON, the user's project will fail to build properly. Triple-check your JSON formatting before responding.`;
-
-    // Create the user message with project details
-    const userMessage = `
-      I need you to generate the initial code files for a ${projectType || 'web'} project with the following details:
-      
-      Project Name: ${name}
-      Description: ${description}
-      Target Audience: ${targetAudience || 'General users'}
-      Value Proposition: ${valueProposition || 'Not specified'}
-      User Flow: ${Array.isArray(userFlow) ? userFlow.map((step, index) => `Step ${index + 1}: ${step.content || step}`).join('\n') : 'Not specified'}
-      
-      ${parsedAiResponse ? `
-      Additionally, here's an AI-generated development plan for this project:
-      
-      Summary: ${parsedAiResponse.summary || ''}
-      
-      Key Features:
-      ${parsedAiResponse.keyFeatures ? parsedAiResponse.keyFeatures.map((feature: string) => `- ${feature}`).join('\n') : ''}
-      
-      Tech Stack:
-      ${parsedAiResponse.techStack ? parsedAiResponse.techStack.map((tech: string) => `- ${tech}`).join('\n') : ''}
-      ` : ''}
-      
-      Please generate well-structured, functional code files that will serve as a strong starting point for this project. Focus on creating a complete, cohesive set of files that work together.
-      
-      Note: Your response must be a valid JSON object containing the code files as specified in the system instructions.
-    `;
-
-    console.log("Calling Anthropic API to generate code files...");
-    
+    // Parse JSON from response
+    let jsonData;
     try {
-      // Call Claude API to generate the code files with more explicit parameters
-      const message = await anthropic.messages.create({
-        model: "claude-3-7-sonnet-20250219",
-        max_tokens: 4000,
-        temperature: 0.5,  // Lower temperature for more consistent formatting
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: userMessage
-          }
-        ],
-        stop_sequences: ["```"],
-      });
-
-      // Extract the response text
-      let responseText = '';
+      // First try to parse it directly
+      jsonData = JSON.parse(responseContent);
+    } catch (error) {
+      console.error('Error parsing JSON from response:', error);
       
-      if (Array.isArray(message.content)) {
-        for (const contentBlock of message.content) {
-          if (contentBlock.type === 'text') {
-            responseText += contentBlock.text;
-          }
+      // Attempt to repair the JSON
+      const repairedJson = attemptJsonRepair(responseContent);
+      
+      if (repairedJson) {
+        try {
+          jsonData = JSON.parse(repairedJson);
+          console.log('Successfully repaired and parsed JSON');
+        } catch (error) {
+          console.error('Failed to parse repaired JSON:', error);
+          return NextResponse.json(
+            { error: 'Invalid JSON in AI response', details: String(error) },
+            { status: 500 }
+          );
         }
-      }
-
-      if (!responseText) {
-        console.error('No text content found in response');
+      } else {
+        console.error('Failed to repair JSON');
         return NextResponse.json(
-          { error: 'No content in API response' },
+          { error: 'Invalid JSON in AI response that could not be repaired' },
           { status: 500 }
         );
       }
-
-      console.log('Received response from Claude, length:', responseText.length);
-
-      // Try to extract JSON from the response
-      let jsonResponse = responseText;
-      const jsonMatch = responseText.match(/```(?:json)?([\s\S]*?)```/);
-      if (jsonMatch) {
-        jsonResponse = jsonMatch[1].trim();
-        console.log('Found code block in response. Extracted JSON length:', jsonResponse.length);
-      } else {
-        // Try alternative patterns to extract JSON
-        const altMatch = responseText.match(/\{[\s\S]*\}/);
-        if (altMatch) {
-          jsonResponse = altMatch[0].trim();
-          console.log('Found JSON object using alternative pattern. Length:', jsonResponse.length);
-        } else {
-          console.warn('Could not find JSON code block in Claude response, attempting to parse full response');
-        }
-      }
-      
-      try {
-        // Attempt to repair and parse the JSON response
-        const repairedJson = attemptJsonRepair(jsonResponse);
-        const parsedFiles = JSON.parse(repairedJson);
-        
-        // Cache the successful response
-        if (isDevelopment) {
-          saveToCache(cacheKey, JSON.stringify(parsedFiles));
-        }
-        
-        return NextResponse.json({ files: parsedFiles });
-      } catch (e) {
-        console.error('Failed to parse JSON from response:', e);
-        
-        // Return mock files as fallback
-        if (isDevelopment) {
-          saveToCache(cacheKey, JSON.stringify(mockCodeFiles));
-        }
-        
-        return NextResponse.json(
-          { files: mockCodeFiles, error: 'Failed to parse generated code' },
-          { status: 200 }
-        );
-      }
-    } catch (error) {
-      console.error('Error generating code files:', error);
-      
-      // Return mock files as fallback
+    }
+    
+    if (!jsonData || !jsonData.files) {
       return NextResponse.json(
-        { files: mockCodeFiles, error: 'Failed to generate code files' },
-        { status: 200 }
+        { error: 'No files found in AI response' },
+        { status: 500 }
       );
     }
+    
+    // Save to cache for future requests
+    await saveToCache(cacheKey, jsonData);
+    
+    // If user info is provided, save to database
+    if (userId && userEmail && projectId) {
+      console.log('Saving project to database');
+      await saveProject(userId, userEmail, projectId, {
+        name: projectName,
+        type: projectType,
+        description: projectDescription || '',
+        files: jsonData.files
+      });
+    }
+    
+    return NextResponse.json(jsonData);
   } catch (error) {
-    console.error('Error in generate-code API:', error);
+    console.error('Error in API route:', error);
     return NextResponse.json(
-      { error: 'Server error' },
+      { error: 'Internal server error', details: String(error) },
       { status: 500 }
     );
+  }
+}
+
+// Helper function to attempt to repair malformed JSON
+function attemptJsonRepair(jsonString: string): string | null {
+  // If it's already valid, return it
+  try {
+    JSON.parse(jsonString);
+    return jsonString;
+  } catch (e) {
+    // Continue with repair attempts
+  }
+
+  console.log("Attempting to repair malformed JSON");
+
+  // Function to extract potential JSON from a text string
+  const extractPotentialJson = (text: string): string => {
+    // Look for content between triple backticks if present
+    const codeBlockRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?```/g;
+    const codeBlockMatches = [...text.matchAll(codeBlockRegex)];
+    
+    if (codeBlockMatches.length > 0) {
+      // Return the last code block (most likely to be the complete one)
+      return codeBlockMatches[codeBlockMatches.length - 1][1].trim();
+    }
+    
+    // Look for content that appears to be JSON (starts with { and ends with })
+    const jsonLikeRegex = /(\{[\s\S]*\})/g;
+    const jsonLikeMatches = [...text.matchAll(jsonLikeRegex)];
+    
+    if (jsonLikeMatches.length > 0) {
+      // Return the last match (most likely to be complete)
+      return jsonLikeMatches[jsonLikeMatches.length - 1][1].trim();
+    }
+    
+    // If no clear JSON structure is found, return the original
+    return text;
+  };
+
+  // Function to rebuild JSON structure from malformed input
+  const rebuildJson = (input: string): string => {
+    // Fix missing colons between property names and values
+    let result = input.replace(/(?<="[^"]+"\s*)(?=\s*[{["0-9])/g, ': ');
+    
+    // Fix unescaped quotes within string values
+    let inString = false;
+    let tempStr = '';
+    for (let i = 0; i < result.length; i++) {
+      const char = result[i];
+      const prevChar = i > 0 ? result[i-1] : '';
+      
+      if (char === '"' && prevChar !== '\\') {
+        inString = !inString;
+      }
+      
+      if (inString && char === '"' && prevChar !== '\\' && i !== 0 && i !== result.length - 1) {
+        tempStr += '\\"';
+      } else {
+        tempStr += char;
+      }
+    }
+    result = tempStr;
+    
+    // Fix missing commas between array elements or object properties
+    result = result.replace(/}(\s*){/g, '},\n$1{');
+    result = result.replace(/](\s*)\[/g, '],\n$1[');
+    result = result.replace(/"(\s*){/g, '",\n$1{');
+    
+    return result;
+  };
+
+  // Try different repair strategies
+  try {
+    // First, extract potential JSON content
+    const potentialJson = extractPotentialJson(jsonString);
+    
+    // Try simple fixes first
+    try {
+      let tempObj = JSON.parse(potentialJson);
+      return JSON.stringify(tempObj);
+    } catch (error) {
+      // Continue with more complex repairs
+    }
+    
+    // Try rebuilding the JSON structure
+    const rebuiltJson = rebuildJson(potentialJson);
+    
+    try {
+      let tempObj = JSON.parse(rebuiltJson);
+      return JSON.stringify(tempObj);
+    } catch (error) {
+      console.log("Could not parse rebuilt JSON:", error);
+    }
+    
+    // If we got here, our repair attempts failed
+    console.log("All JSON repair attempts failed");
+    return null;
+  } catch (error) {
+    console.error("Error in JSON repair process:", error);
+    return null;
   }
 } 

@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 //useRouter is a hook that allows you to navigate to a different route
 import Link from 'next/link';
 //Link is a component that allows you to navigate to a different route
+import Image from 'next/image';
+//Image is a component that allows you to optimize images
 import { useAuth } from '@/contexts/AuthContext';
 //useAuth is a hook that allows you to access the user's authentication state
 import { db } from '@/lib/firebase';
@@ -242,7 +244,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="py-4 px-6 border-b bg-white sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Marble</h1>
+          <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
           <div className="flex items-center gap-4">
             <AuthStatus />
             <Button asChild variant="ghost" size="sm">
@@ -256,26 +258,42 @@ export default function Dashboard() {
       <main className="flex-grow p-6 relative z-1">
         <div className="container mx-auto max-w-5xl">
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Dashboard</h2>
             <Button asChild>
               <Link href="/project/new">Create New Project</Link>
             </Button>
           </div>
           
-          <Card className="mb-8 border-blue-100 bg-blue-50/50">
-            <CardHeader>
-              <CardTitle>Welcome to Marble!</CardTitle>
-              <CardDescription>
-                This is your personal dashboard where you can create and manage app projects.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-600">
-                Get started by creating a new project or continue working on an existing one.
-                Marble will help you define your app requirements and generate a development plan.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col md:flex-row gap-6 mb-8">
+            <div className="md:w-1/3 flex justify-center items-center">
+              <div className="overflow-hidden">
+                <Image 
+                  src="/images/marble_blocks.png" 
+                  alt="Marble Artwork" 
+                  width={300} 
+                  height={300}
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            </div>
+            <div className="md:w-2/3">
+              <Card className="border-blue-100 bg-blue-50/50 h-full">
+                <CardHeader>
+                  <CardTitle>Welcome to Marble!</CardTitle>
+                  <CardDescription>
+                    This is your personal dashboard where you can create and manage app projects.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-zinc-600">
+                    Get started by creating a new project or continue working on an existing one.
+                    Marble will help you define your app requirements and generate a development plan.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           <Card>
             <CardHeader>

@@ -27,6 +27,9 @@ export async function POST(request: Request) {
       case 'valueProposition':
         prompt = `Generate a clear value proposition for a ${projectType || 'digital'} project. Express in 1-2 sentences what unique value this project offers to users.`;
         break;
+      case 'userJourneyText':
+        prompt = `Generate a detailed user journey narrative for a ${projectType || 'digital'} project. This should be a paragraph (4-6 sentences) describing the complete user flow from discovery to achieving their goals. Format it as a coherent narrative with each step in the journey clearly defined.`;
+        break;
       case 'new-step':
       case 'journey-step-1':
         prompt = `Generate a user journey step for a ${projectType || 'digital'} project. This should be a short phrase describing a key interaction point.`;
@@ -86,6 +89,11 @@ function mockGenerateContent(fieldType: string, projectType?: string, prompt?: s
       `Our ${projectDesc} solution reduces task completion time by 40% while improving accuracy and user satisfaction.`,
       `Unlike competitors, our ${projectDesc} platform integrates all essential tools in one intuitive interface, eliminating the need for multiple subscriptions.`,
       `We provide enterprise-grade ${projectDesc} capabilities at accessible price points, democratizing access to powerful tools.`,
+    ],
+    userJourneyText: [
+      `First, the user discovers our ${projectDesc} through social media or search. Upon visiting, they're greeted with a clean interface explaining key benefits. After signing up, they complete a brief onboarding process customizing their experience. Users then explore core features with helpful tooltips guiding them. Finally, they complete their first task and receive a confirmation, feeling satisfied with the intuitive experience.`,
+      `Initially, users find our ${projectDesc} through word-of-mouth or online reviews. They visit our landing page and immediately understand our value proposition. After registration, a quick tutorial highlights main features. Users then navigate to solve their specific problem, easily finding the right tools. They successfully complete their task and are prompted to save their work or share results with colleagues.`,
+      `Users begin by searching for solutions to their ${projectDesc} needs. Upon landing on our site, they're drawn in by testimonials and feature highlights. After signing up, they explore a personalized dashboard showing recommended starting points. They experiment with core functionality, receiving contextual help when needed. Once comfortable, users integrate our solution into their workflow and experience the productivity benefits firsthand.`,
     ],
   };
 

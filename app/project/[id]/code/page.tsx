@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress'; 
 import { toast } from "@/components/ui/use-toast";
 import dynamic from 'next/dynamic';
-import { Save, ArrowLeft, Check, Download } from 'lucide-react';
+import { Save, ArrowLeft, Check, Download, MessageSquare, Code } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Dynamically import the CodeEditor component to avoid hydration issues
@@ -30,6 +30,9 @@ const FileExplorer = dynamic(() => import('@/components/FileExplorer'), {
 
 // Dynamically import the PreviewComponent component
 const PreviewComponent = dynamic(() => import('@/components/PreviewComponent'), { ssr: false });
+
+// Dynamically import the ChatCodeInterface component
+const ChatCodeInterface = dynamic(() => import('@/components/ChatCodeInterface'), { ssr: false });
 
 // Define interfaces for file data
 interface FileData {
@@ -78,8 +81,8 @@ export default function ProjectCodePage() {
   const [buildStatus, setBuildStatus] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('code');
-  const [isFullPage] = useState(false);
   const [projectFiles, setProjectFiles] = useState<Record<string, FileData>>({});
+  const [showChatInterface, setShowChatInterface] = useState(false);
 
   // Fetch project data
   useEffect(() => {
@@ -756,6 +759,26 @@ if (yearElement) {
     }
   };
 
+  // Function to apply code from the AI to the current file
+  const applyGeneratedCode = (codeContent: string) => {
+    if (!currentFile) {
+      toast({
+        title: "Error",
+        description: "No file is currently selected to apply the code.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCurrentFileContent(codeContent);
+    setIsDirty(true);
+    
+    toast({
+      title: "Code applied",
+      description: `The generated code has been applied to ${currentFile}. Remember to save your changes!`,
+    });
+  };
+
   // Loading state
   if (loading || isLoading) {
     return (
@@ -800,7 +823,7 @@ if (yearElement) {
                     priority
                   />
                 </div>
-                <h1 className="text-xl font-bold tracking-tight ml-2">Marble</h1>
+                <h1 className="text-xl font-bold tracking-tight ml-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
               </Link>
               <span className="text-zinc-300 mx-2">|</span>
               <h2 className="text-zinc-600 truncate max-w-[200px]">{project?.name}</h2>
@@ -830,11 +853,11 @@ if (yearElement) {
                   <Image 
                     src="/images/marble_blocks_2.png" 
                     alt="Marble Logo" 
-                    width={64} 
-                    height={64} 
+                    width={240} 
+                    height={240} 
                     className="mx-auto mb-4" 
                   />
-                  <h2 className="text-2xl font-bold mb-2">Ready to Build Your Project?</h2>
+                  <h2 className="text-2xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Ready to Build Your Project?</h2>
                   <p className="text-zinc-600 mb-4">
                     Marble will generate the initial code structure for your {project?.projectType || 'project'} 
                     based on your project requirements.
@@ -880,9 +903,9 @@ if (yearElement) {
     );
   }
 
-  // Render code editor UI
+  // Normal editor view
   return (
-    <div className={`${isFullPage ? 'fixed inset-0 z-50 bg-background' : ''} flex flex-col h-full w-full`}>
+    <div className="flex flex-col min-h-screen">
       <header className="py-3 px-6 border-b bg-white shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -897,30 +920,51 @@ if (yearElement) {
                   priority
                 />
               </div>
-              <h1 className="text-xl font-bold tracking-tight ml-2">Marble</h1>
+              <h1 className="text-xl font-bold tracking-tight ml-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Marble</h1>
             </Link>
             <span className="text-zinc-300 mx-2">|</span>
             <h2 className="text-zinc-600 truncate max-w-[200px]">{project?.name}</h2>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <span className="text-amber-600 text-sm mr-1">• Unsaved changes</span>
+            )}
+            
             <Button 
               variant="outline" 
-              size="sm" 
-              onClick={saveCurrentFile}
+              size="sm"
               disabled={!isDirty}
+              onClick={saveCurrentFile}
+              className={`${
+                isDirty 
+                  ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100' 
+                  : ''
+              }`}
             >
               <Save className="h-4 w-4 mr-1" />
               Save
             </Button>
-            <Button
-              variant="outline"
+            
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowChatInterface(!showChatInterface)}
+              className={showChatInterface ? 'bg-indigo-100 text-indigo-700' : ''}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              {showChatInterface ? 'Hide AI Chat' : 'Show AI Chat'}
+            </Button>
+            
+            <Button 
+              variant="ghost" 
               size="sm"
               onClick={downloadProjectFiles}
             >
               <Download className="h-4 w-4 mr-1" />
               Download
             </Button>
+            
             <Button 
               variant="ghost" 
               size="sm"
@@ -931,77 +975,103 @@ if (yearElement) {
                 Back to Project
               </Link>
             </Button>
+            
             <AuthStatus />
           </div>
         </div>
       </header>
-
-      <div className="flex-1 overflow-hidden">
-        <div className="flex h-full">
-          <div className="w-64 border-r border-zinc-200 bg-white overflow-y-auto">
-            {Object.keys(projectFiles).length > 0 ? (
-              <FileExplorer
+      
+      <main className="flex-grow p-6">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)]">
+            {/* Left sidebar: File Explorer */}
+            <div className="col-span-2">
+              <FileExplorer 
                 files={projectFiles}
                 onFileSelect={handleFileSelect}
                 onFileCreate={handleFileCreate}
                 selectedFile={currentFile}
               />
-            ) : (
-              <div className="p-4 text-center text-zinc-400">
-                <p>No files available</p>
+            </div>
+            
+            {/* Main Content Area */}
+            <div className={`${showChatInterface ? 'col-span-7' : 'col-span-10'}`}>
+              <div className="border rounded-lg overflow-hidden h-full flex flex-col">
+                <Tabs defaultValue="code" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                  <TabsList className="bg-zinc-800 w-full justify-start rounded-none border-b border-zinc-700 px-2">
+                    <TabsTrigger 
+                      value="code" 
+                      className="data-[state=active]:bg-zinc-700 data-[state=active]:text-white text-zinc-400 rounded-sm"
+                    >
+                      <Code className="h-4 w-4 mr-1" />
+                      Code
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="preview" 
+                      className="data-[state=active]:bg-zinc-700 data-[state=active]:text-white text-zinc-400 rounded-sm"
+                    >
+                      Preview
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="code" className="flex-grow overflow-hidden">
+                    <div className="bg-zinc-800 text-white px-3 py-1.5 text-sm font-medium flex justify-between items-center border-b border-zinc-700">
+                      <div className="flex items-center">
+                        <span className="font-mono">{currentFile || 'No file selected'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-zinc-300 hover:text-white hover:bg-zinc-700"
+                          onClick={generateFileContent}
+                        >
+                          Generate with Claude
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="h-[calc(100%-36px)]">
+                      {currentFile ? (
+                        <CodeEditor 
+                          language={currentLanguage}
+                          value={currentFileContent}
+                          onChange={handleEditorChange}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full bg-zinc-900 text-zinc-400">
+                          <p>Select a file to edit or create a new one</p>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="preview" className="flex-grow overflow-hidden">
+                    <div className="h-full">
+                      <PreviewComponent files={projectFiles} />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+            
+            {/* Right sidebar: Chat Interface */}
+            {showChatInterface && (
+              <div className="col-span-3">
+                <ChatCodeInterface
+                  currentFile={currentFile}
+                  currentFileContent={currentFileContent}
+                  projectFiles={projectFiles}
+                  projectName={project?.name}
+                  projectType={project?.projectType}
+                  projectDescription={project?.description}
+                  onApplyCode={applyGeneratedCode}
+                />
               </div>
             )}
           </div>
-          
-          <div className="flex-1 overflow-auto">
-            <Tabs 
-              value={activeTab} 
-              onValueChange={setActiveTab}
-              className="w-full h-full flex flex-col"
-            >
-              <div className="border-b bg-white">
-                <TabsList className="border-b-0">
-                  <TabsTrigger value="code">Code</TabsTrigger>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                </TabsList>
-              </div>
-              
-              <TabsContent value="code" className="flex-1 p-0 m-0 h-full">
-                {currentFile && (
-                  <div className="h-full flex flex-col">
-                    <div className="p-2 bg-white border-b flex justify-between items-center">
-                      <span className="text-sm font-medium text-zinc-700">{currentFile}</span>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
-                        onClick={generateFileContent}
-                      >
-                        Generate with Claude
-                      </Button>
-                    </div>
-                    <div className="flex-1">
-                      <CodeEditor
-                        value={currentFileContent}
-                        language={currentLanguage}
-                        onChange={handleEditorChange}
-                      />
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="preview" className="flex-1 p-0 m-0 h-full">
-                <div className="w-full h-[calc(100vh-200px)] bg-white overflow-hidden">
-                  <PreviewComponent 
-                    files={projectFiles}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 } 
