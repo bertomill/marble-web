@@ -15,6 +15,7 @@ Marble is a web application that helps users plan and manage their software proj
 - Toast notifications for user feedback
 - Decorative marble blocks background on the dashboard for enhanced visual appeal
 - Consistent header design across all pages with clickable logo for easy navigation
+- Showcase of marble artwork on the dashboard for visual inspiration
 
 ## Technologies Used
 
@@ -43,6 +44,7 @@ The project includes an ESLint configuration file (.eslintrc.json) that sets spe
 ## Recent Updates
 
 ### Enhanced Project Experience
+- Added marble artwork showcase on the dashboard for visual inspiration
 - Added AI-powered user journey text generation for more comprehensive user flow descriptions
 - Added UI toast components for better user feedback
 - Enhanced competitor search with loading progress indicators and status messages

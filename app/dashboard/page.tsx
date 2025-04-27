@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 //useRouter is a hook that allows you to navigate to a different route
 import Link from 'next/link';
 //Link is a component that allows you to navigate to a different route
+import Image from 'next/image';
+//Image is a component that allows you to optimize images
 import { useAuth } from '@/contexts/AuthContext';
 //useAuth is a hook that allows you to access the user's authentication state
 import { db } from '@/lib/firebase';
@@ -262,20 +264,36 @@ export default function Dashboard() {
             </Button>
           </div>
           
-          <Card className="mb-8 border-blue-100 bg-blue-50/50">
-            <CardHeader>
-              <CardTitle>Welcome to Marble!</CardTitle>
-              <CardDescription>
-                This is your personal dashboard where you can create and manage app projects.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-600">
-                Get started by creating a new project or continue working on an existing one.
-                Marble will help you define your app requirements and generate a development plan.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col md:flex-row gap-6 mb-8">
+            <div className="md:w-1/3 flex justify-center items-center">
+              <div className="rounded-lg overflow-hidden shadow-md border border-gray-200">
+                <Image 
+                  src="/images/marble_shapes.png" 
+                  alt="Marble Artwork" 
+                  width={300} 
+                  height={300}
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            </div>
+            <div className="md:w-2/3">
+              <Card className="border-blue-100 bg-blue-50/50 h-full">
+                <CardHeader>
+                  <CardTitle>Welcome to Marble!</CardTitle>
+                  <CardDescription>
+                    This is your personal dashboard where you can create and manage app projects.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-zinc-600">
+                    Get started by creating a new project or continue working on an existing one.
+                    Marble will help you define your app requirements and generate a development plan.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           <Card>
             <CardHeader>
