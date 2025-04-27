@@ -266,9 +266,9 @@ export default function Dashboard() {
           
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             <div className="md:w-1/3 flex justify-center items-center">
-              <div className="rounded-lg overflow-hidden shadow-md border border-gray-200">
+              <div className="overflow-hidden">
                 <Image 
-                  src="/images/marble_shapes.png" 
+                  src="/images/marble_blocks.png" 
                   alt="Marble Artwork" 
                   width={300} 
                   height={300}
