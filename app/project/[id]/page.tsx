@@ -307,6 +307,32 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   Edit
                 </Button>
               )}
+              
+              {project.status === 'planning' || project.status === 'planning_complete' ? (
+                <Button 
+                  variant="default"
+                  size="sm"
+                  asChild
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Link href={`/project/${projectId}/code`}>
+                    <Code className="h-4 w-4 mr-1" />
+                    Build Project
+                  </Link>
+                </Button>
+              ) : (
+                <Button 
+                  variant="default"
+                  size="sm"
+                  asChild
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Link href={`/project/${projectId}/code`}>
+                    <Code className="h-4 w-4 mr-1" />
+                    Open Code Editor
+                  </Link>
+                </Button>
+              )}
               <Badge variant="outline">{project?.status}</Badge>
             </div>
           </div>

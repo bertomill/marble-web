@@ -138,6 +138,8 @@ export default function NewProject() {
   const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
   const [editedContent, setEditedContent] = useState<EditedContent>({});
   const [parsedPlan, setParsedPlan] = useState<ProjectPlan | null>(null);
+  // Add state to track the new project ID
+  const [newProjectId, setNewProjectId] = useState<string | null>(null);
 
   // Check if speech recognition is supported
   useEffect(() => {
@@ -318,6 +320,9 @@ export default function NewProject() {
         aiResponse: data.response,
         journeySteps // store the structured journey steps
       });
+      
+      // Save the ID of the new project
+      setNewProjectId(newProjectRef.id);
       
       setProgress(100);
       setStatusMessage('Project successfully created!');
@@ -1392,10 +1397,22 @@ export default function NewProject() {
                           </Card>
                         ))}
                       </div>
-                      <div className="mt-6 text-center">
-                        <Button onClick={goToDashboard} className="bg-green-600 hover:bg-green-700 text-white">
-                          Continue to Dashboard
-                        </Button>
+                      <div className="mt-6 text-center space-y-4">
+                        <p className="text-gray-600 mb-2">Your project has been created successfully! What would you like to do next?</p>
+                        <div className="flex justify-center space-x-4">
+                          <Button 
+                            asChild
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            <Link href={`/project/${newProjectId}/code`}>
+                              <Code className="h-4 w-4 mr-2" />
+                              Build My Project
+                            </Link>
+                          </Button>
+                          <Button onClick={goToDashboard} variant="outline">
+                            Go to Dashboard
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
