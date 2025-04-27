@@ -99,16 +99,19 @@ const PreviewComponent: React.FC<PreviewComponentProps> = ({
         </body>
         </html>
       `;
+    } else if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
+      // If it's a complete HTML document, inject CSS and JS if they're not already there
+      if (cssContent && !htmlContent.includes('<style>')) {
+        htmlContent = htmlContent.replace('</head>', `<style>${cssContent}</style></head>`);
+      }
+      if (jsContent && !htmlContent.includes('<script>')) {
+        htmlContent = htmlContent.replace('</body>', `<script>${jsContent}</script></body>`);
+      }
     }
 
-    // Write content to iframe
-    const iframe = iframeRef.current;
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(htmlContent);
-      iframeDoc.close();
+    // Set the srcDoc of the iframe directly instead of writing to the document
+    if (iframeRef.current) {
+      iframeRef.current.srcdoc = htmlContent;
     }
   }, [html, css, javascript, files]);
 

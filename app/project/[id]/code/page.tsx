@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -67,19 +67,24 @@ export default function ProjectCodePage() {
   const projectId = params.id as string;
   
   const [project, setProject] = useState<Project | null>(null);
+  const [projectFiles, setProjectFiles] = useState<Record<string, FileData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [currentFileContent, setCurrentFileContent] = useState<string>('');
-  const [currentLanguage, setCurrentLanguage] = useState<string>('javascript');
+  const [currentLanguage, setCurrentLanguage] = useState<string>('html');
   const [isDirty, setIsDirty] = useState(false);
   const [isBuildMode, setIsBuildMode] = useState(false);
+  const [isBuilding, setIsBuilding] = useState(false);
   const [buildProgress, setBuildProgress] = useState(0);
   const [buildStatus, setBuildStatus] = useState('');
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('code');
   const [isFullPage] = useState(false);
-  const [projectFiles, setProjectFiles] = useState<Record<string, FileData>>({});
+  
+  // Add state for tab management
+  const [activeTab, setActiveTab] = useState<string>('code');
+  
+  // Create a ref to track build progress updates
+  const buildProgressInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch project data
   useEffect(() => {
@@ -141,21 +146,24 @@ export default function ProjectCodePage() {
 
   // Function to create default files based on project type
   const createDefaultFiles = (project: Project) => {
-    const files: Record<string, FileData> = {};
+    console.log('Creating default files for project type:', project.projectType);
     
-    // Default files for all projects
-    files['index.html'] = {
-      content: `<!DOCTYPE html>
+    const defaultFiles: Record<string, FileData> = {};
+    
+    if (project.projectType === 'website' || project.projectType === 'web') {
+      // Simple website defaults
+      defaultFiles['index.html'] = {
+        content: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${project.name || 'New Project'}</title>
+  <title>${project.name || 'My Website'}</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <h1>${project.name || 'New Project'}</h1>
+    <h1>${project.name || 'My Website'}</h1>
     <nav>
       <ul>
         <li><a href="#home">Home</a></li>
@@ -167,47 +175,53 @@ export default function ProjectCodePage() {
   
   <main>
     <section id="home">
-      <h2>Welcome to ${project.name || 'Our Project'}</h2>
-      <p>${project.description || 'This is a description of our amazing project.'}</p>
+      <h2>Welcome to ${project.name || 'My Website'}</h2>
+      <p>${project.description || 'This is a website created with Marble.'}</p>
     </section>
     
     <section id="about">
       <h2>About Us</h2>
-      <p>We are dedicated to creating high-quality solutions.</p>
+      <p>We are dedicated to providing the best service to our customers.</p>
     </section>
     
     <section id="contact">
       <h2>Contact Us</h2>
-      <form>
-        <div>
+      <form id="contact-form">
+        <div class="form-group">
           <label for="name">Name:</label>
-          <input type="text" id="name" name="name">
+          <input type="text" id="name" name="name" required>
         </div>
-        <div>
+        
+        <div class="form-group">
           <label for="email">Email:</label>
-          <input type="email" id="email" name="email">
+          <input type="email" id="email" name="email" required>
         </div>
-        <div>
+        
+        <div class="form-group">
           <label for="message">Message:</label>
-          <textarea id="message" name="message"></textarea>
+          <textarea id="message" name="message" rows="5" required></textarea>
         </div>
-        <button type="submit">Send</button>
+        
+        <button type="submit">Send Message</button>
       </form>
     </section>
   </main>
   
   <footer>
-    <p>&copy; ${new Date().getFullYear()} ${project.name || 'Our Project'}. All rights reserved.</p>
+    <p>&copy; ${new Date().getFullYear()} ${project.name || 'My Website'}. All rights reserved.</p>
   </footer>
   
   <script src="script.js"></script>
 </body>
 </html>`,
-      language: 'html'
-    };
-    
-    files['styles.css'] = {
-      content: `/* Global Styles */
+        language: 'html',
+        lastModified: Date.now()
+      };
+      
+      defaultFiles['styles.css'] = {
+        content: `/* Styles for ${project.name || 'My Website'} */
+
+/* Reset and base styles */
 * {
   margin: 0;
   padding: 0;
@@ -218,22 +232,19 @@ body {
   font-family: Arial, sans-serif;
   line-height: 1.6;
   color: #333;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-a {
-  text-decoration: none;
-  color: #007bff;
-}
-
-/* Header */
+/* Header styles */
 header {
-  background-color: #f8f9fa;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-header h1 {
-  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 30px;
 }
 
 nav ul {
@@ -241,116 +252,497 @@ nav ul {
   list-style: none;
 }
 
-nav ul li {
-  margin-right: 1rem;
+nav li {
+  margin-left: 20px;
 }
 
-/* Main Content */
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+nav a {
+  text-decoration: none;
+  color: #333;
 }
 
+nav a:hover {
+  color: #0066cc;
+}
+
+/* Section styles */
 section {
-  margin-bottom: 3rem;
+  margin-bottom: 40px;
+  padding: 20px;
+  border-radius: 5px;
+  background-color: #f9f9f9;
 }
 
-section h2 {
-  margin-bottom: 1rem;
-  color: #0056b3;
+h1, h2 {
+  margin-bottom: 15px;
+  color: #0066cc;
 }
 
-/* Form Styles */
-form div {
-  margin-bottom: 1rem;
+/* Form styles */
+.form-group {
+  margin-bottom: 15px;
 }
 
 label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 5px;
 }
 
-input, textarea {
+input,
+textarea {
   width: 100%;
-  padding: 0.5rem;
+  padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
 button {
-  background-color: #007bff;
+  background-color: #0066cc;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 10px 15px;
   border-radius: 4px;
   cursor: pointer;
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #0055aa;
 }
 
-/* Footer */
+/* Footer styles */
 footer {
-  background-color: #f8f9fa;
   text-align: center;
-  padding: 1rem;
-  margin-top: 2rem;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+  margin-top: 30px;
 }`,
-      language: 'css'
-    };
-    
-    files['script.js'] = {
-      content: `// Navigation smooth scroll
-document.querySelectorAll('nav a').forEach(anchor => {
-  anchor.addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    const targetId = this.getAttribute('href');
-    const targetElement = document.querySelector(targetId);
-    
-    if (targetElement) {
-      window.scrollTo({
-        top: targetElement.offsetTop - 100,
-        behavior: 'smooth'
-      });
-    }
-  });
-});
+        language: 'css',
+        lastModified: Date.now()
+      };
+      
+      defaultFiles['script.js'] = {
+        content: `// JavaScript for ${project.name || 'My Website'}
 
-// Form submission
-const form = document.querySelector('form');
-if (form) {
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const nameInput = document.getElementById('name');
-    const emailInput = document.getElementById('email');
-    const messageInput = document.getElementById('message');
-    
-    // Simple validation
-    if (!nameInput.value || !emailInput.value || !messageInput.value) {
-      alert('Please fill out all fields');
-      return;
-    }
-    
-    // In a real application, you would send this data to a server
-    alert('Thanks for your message! We will get back to you soon.');
-    form.reset();
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Document is ready!');
+  
+  // Handle form submission
+  const contactForm = document.getElementById('contact-form');
+  if (contactForm) {
+    contactForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get form data
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const message = document.getElementById('message').value;
+      
+      // Log form data (in a real app, you would send this to a server)
+      console.log('Form submitted:', { name, email, message });
+      
+      // Show success message
+      alert('Thank you for your message! We will get back to you soon.');
+      
+      // Reset form
+      contactForm.reset();
+    });
+  }
+  
+  // Smooth scrolling for navigation links
+  const navLinks = document.querySelectorAll('nav a');
+  navLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      const targetId = this.getAttribute('href');
+      const targetElement = document.querySelector(targetId);
+      
+      if (targetElement) {
+        window.scrollTo({
+          top: targetElement.offsetTop - 50,
+          behavior: 'smooth'
+        });
+      }
+    });
   });
+});`,
+        language: 'javascript',
+        lastModified: Date.now()
+      };
+    } else if (project.projectType === 'app' || project.projectType === 'webapp') {
+      // Simple web app defaults (similar, but with more interactive elements)
+      // ... app files would go here
+      // For now, just use the same defaults
+      defaultFiles['index.html'] = {
+        content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name || 'My Web App'}</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>${project.name || 'My Web App'}</h1>
+    <nav>
+      <ul>
+        <li><a href="#" class="nav-link" data-page="home">Home</a></li>
+        <li><a href="#" class="nav-link" data-page="about">About</a></li>
+        <li><a href="#" class="nav-link" data-page="contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+  
+  <main>
+    <div id="page-container">
+      <div id="home-page" class="page active">
+        <h2>Welcome to ${project.name || 'My Web App'}</h2>
+        <p>${project.description || 'This is a web application created with Marble.'}</p>
+        <button id="cta-button" class="primary-button">Get Started</button>
+      </div>
+      
+      <div id="about-page" class="page">
+        <h2>About Our App</h2>
+        <p>This web application helps users accomplish their goals efficiently.</p>
+        <div class="features">
+          <div class="feature">
+            <h3>Feature 1</h3>
+            <p>Description of the first amazing feature.</p>
+          </div>
+          <div class="feature">
+            <h3>Feature 2</h3>
+            <p>Description of the second amazing feature.</p>
+          </div>
+          <div class="feature">
+            <h3>Feature 3</h3>
+            <p>Description of the third amazing feature.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div id="contact-page" class="page">
+        <h2>Contact Us</h2>
+        <form id="contact-form">
+          <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="message">Message:</label>
+            <textarea id="message" name="message" rows="5" required></textarea>
+          </div>
+          
+          <button type="submit" class="primary-button">Send Message</button>
+        </form>
+      </div>
+    </div>
+  </main>
+  
+  <footer>
+    <p>&copy; ${new Date().getFullYear()} ${project.name || 'My Web App'}. All rights reserved.</p>
+  </footer>
+  
+  <script src="script.js"></script>
+</body>
+</html>`,
+        language: 'html',
+        lastModified: Date.now()
+      };
+      
+      defaultFiles['styles.css'] = {
+        content: `/* Styles for ${project.name || 'My Web App'} */
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-// Add dynamic year to footer
-const yearElement = document.querySelector('footer p');
-if (yearElement) {
-  const currentYear = new Date().getFullYear();
-  yearElement.textContent = yearElement.textContent.replace(currentYear, currentYear);
+:root {
+  --primary-color: #4a6cf7;
+  --secondary-color: #f9f9f9;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: #ddd;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #fff;
+}
+
+/* Header styles */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 30px;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+}
+
+nav li {
+  margin-left: 20px;
+}
+
+nav a {
+  text-decoration: none;
+  color: var(--text-color);
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+nav a:hover {
+  color: var(--primary-color);
+}
+
+/* Page container and pages */
+#page-container {
+  position: relative;
+  min-height: 400px;
+}
+
+.page {
+  display: none;
+  animation: fadeIn 0.5s;
+}
+
+.page.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Button styles */
+.primary-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.primary-button:hover {
+  background-color: #3a5ce5;
+}
+
+/* Features section */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.feature {
+  background-color: var(--secondary-color);
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.feature h3 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+/* Section and typography styles */
+section, .page {
+  margin-bottom: 40px;
+}
+
+h1, h2, h3 {
+  margin-bottom: 15px;
+}
+
+h1 {
+  color: var(--primary-color);
+}
+
+h2 {
+  color: var(--text-color);
+  font-size: 1.8rem;
+}
+
+p {
+  margin-bottom: 15px;
+  color: var(--light-text);
+}
+
+/* Form styles */
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+/* Footer styles */
+footer {
+  text-align: center;
+  padding: 20px 0;
+  border-top: 1px solid var(--border-color);
+  margin-top: 30px;
+  color: var(--light-text);
+  font-size: 0.9rem;
 }`,
-      language: 'javascript'
-    };
+        language: 'css',
+        lastModified: Date.now()
+      };
+      
+      defaultFiles['script.js'] = {
+        content: `// JavaScript for ${project.name || 'My Web App'}
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('App initialized');
+  
+  // Navigation handling
+  const navLinks = document.querySelectorAll('.nav-link');
+  const pages = document.querySelectorAll('.page');
+  
+  // Function to show a specific page
+  function showPage(pageId) {
+    // Hide all pages
+    pages.forEach(page => {
+      page.classList.remove('active');
+    });
     
-    return files;
+    // Show the selected page
+    const targetPage = document.getElementById(pageId + '-page');
+    if (targetPage) {
+      targetPage.classList.add('active');
+    }
+  }
+  
+  // Add click handlers to navigation links
+  navLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      // Get the page to show from the data attribute
+      const pageToShow = this.getAttribute('data-page');
+      showPage(pageToShow);
+      
+      // Update active state on navigation
+      navLinks.forEach(navLink => navLink.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+  
+  // Handle the CTA button
+  const ctaButton = document.getElementById('cta-button');
+  if (ctaButton) {
+    ctaButton.addEventListener('click', function() {
+      showPage('about');
+      // Update the navigation active state
+      navLinks.forEach(link => {
+        if (link.getAttribute('data-page') === 'about') {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    });
+  }
+  
+  // Handle form submission
+  const contactForm = document.getElementById('contact-form');
+  if (contactForm) {
+    contactForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get form data
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const message = document.getElementById('message').value;
+      
+      // Log form data (in a real app, you would send this to a server)
+      console.log('Form submitted:', { name, email, message });
+      
+      // Show success message
+      alert('Thank you for your message! We will get back to you soon.');
+      
+      // Reset form
+      contactForm.reset();
+      
+      // Go back to home page
+      showPage('home');
+      navLinks.forEach(link => {
+        if (link.getAttribute('data-page') === 'home') {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    });
+  }
+});`,
+        language: 'javascript',
+        lastModified: Date.now()
+      };
+    }
+    
+    // Update project with default files in Firestore
+    updateDoc(doc(db, 'projects', projectId), {
+      files: defaultFiles,
+      status: 'built'
+    }).then(() => {
+      console.log('Default files saved to Firestore');
+      
+      // Update local state
+      setProjectFiles(defaultFiles);
+      
+      // Set the first file as current
+      const firstFileName = Object.keys(defaultFiles)[0];
+      if (firstFileName) {
+        setCurrentFile(firstFileName);
+        setCurrentFileContent(defaultFiles[firstFileName].content);
+        setCurrentLanguage(defaultFiles[firstFileName].language);
+      }
+      
+      // Transition to editor view
+      setIsBuildMode(false);
+    }).catch(error => {
+      console.error('Error saving default files:', error);
+    });
+    
+    return defaultFiles;
   };
 
   // Handle file selection
@@ -408,62 +800,34 @@ if (yearElement) {
 
   // Build the project
   const buildProject = async () => {
-    if (!project || !user) return;
+    if (!projectId || !project) return;
     
     setIsBuilding(true);
     setBuildProgress(0);
-    setBuildStatus('Preparing to build project...');
+    setBuildStatus('Starting build process...');
+    
+    // Simulate build progress
+    let progress = 0;
+    buildProgressInterval.current = setInterval(() => {
+      progress += Math.random() * 10;
+      if (progress > 90) progress = 90;
+      setBuildProgress(Math.round(progress));
+      
+      // Update status message based on progress
+      if (progress < 30) {
+        setBuildStatus('Analyzing project requirements...');
+      } else if (progress < 60) {
+        setBuildStatus('Generating code structure...');
+      } else if (progress < 90) {
+        setBuildStatus('Writing code files...');
+      }
+    }, 800);
     
     try {
-      // Start progress simulation
-      const buildProgressInterval = setInterval(() => {
-        setBuildProgress(prev => {
-          const newProgress = prev + 5;
-          if (newProgress >= 95) {
-            clearInterval(buildProgressInterval);
-            return 95;
-          }
-          return newProgress;
-        });
-        
-        // Update status message based on progress
-        setBuildProgress(prev => {
-          if (prev < 20) {
-            setBuildStatus('Analyzing project requirements...');
-          } else if (prev < 40) {
-            setBuildStatus('Generating code structure...');
-          } else if (prev < 60) {
-            setBuildStatus('Writing core functionality...');
-          } else if (prev < 80) {
-            setBuildStatus('Setting up styles and UI components...');
-          } else {
-            setBuildStatus('Finalizing project files...');
-          }
-          return prev;
-        });
-      }, 500);
-      
-      // Create empty default file structure first
-      const defaultFiles = createDefaultFiles(project);
-      
-      // Update project with default files immediately
-      await updateDoc(doc(db, 'projects', projectId), {
-        files: defaultFiles,
-        status: 'building' // Change status to indicate that files are being created
-      });
-      
-      // Update local state
-      setProjectFiles(defaultFiles);
-      
-      // Set the first file as current to show editor with default content
-      const firstFileName = Object.keys(defaultFiles)[0];
-      setCurrentFile(firstFileName);
-      setCurrentFileContent(defaultFiles[firstFileName].content);
-      setCurrentLanguage(defaultFiles[firstFileName].language);
-      
-      // Transition to editor view immediately
-      setIsBuildMode(false);
-      setIsBuilding(false);
+      // If there are no files yet, create the default ones
+      if (!projectFiles || Object.keys(projectFiles).length === 0) {
+        createDefaultFiles(project);
+      }
       
       // Now make the API call to generate code
       setBuildStatus('Generating code in the background...');
@@ -573,7 +937,10 @@ if (yearElement) {
       }
       
       // Clear interval if it's still running
-      clearInterval(buildProgressInterval);
+      if (buildProgressInterval.current) {
+        clearInterval(buildProgressInterval.current);
+        buildProgressInterval.current = null;
+      }
     } catch (error) {
       console.error('Error in build process:', error);
       
@@ -590,6 +957,12 @@ if (yearElement) {
       // Make sure the editor is showing
       setIsBuildMode(false);
       setIsBuilding(false);
+      
+      // Clear interval if it's running
+      if (buildProgressInterval.current) {
+        clearInterval(buildProgressInterval.current);
+        buildProgressInterval.current = null;
+      }
     }
   };
 
