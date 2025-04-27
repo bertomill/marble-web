@@ -73,7 +73,6 @@ export default function ProjectPage() {
   const [activeCodeTab, setActiveCodeTab] = useState('code');
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [currentFileContent, setCurrentFileContent] = useState<string>('');
-  const [currentLanguage, setCurrentLanguage] = useState<string>('javascript');
   const [projectFiles, setProjectFiles] = useState<Record<string, FileData>>({});
 
   // Fetch project data
@@ -100,7 +99,6 @@ export default function ProjectPage() {
             const firstFileName = Object.keys(projectData.files)[0];
             setCurrentFile(firstFileName);
             setCurrentFileContent(projectData.files[firstFileName].content);
-            setCurrentLanguage(projectData.files[firstFileName].language);
           }
         } else {
           setError('Project not found');
@@ -229,23 +227,11 @@ export default function ProjectPage() {
     }
   };
 
-  const getLanguageFromFileName = (fileName: string): string => {
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    
-    if (extension === 'html' || extension === 'htm') return 'html';
-    if (extension === 'css') return 'css';
-    if (['js', 'jsx'].includes(extension)) return 'javascript';
-    if (['ts', 'tsx'].includes(extension)) return 'typescript';
-    
-    return 'text';
-  };
-
   const handleFileSelect = (fileName: string) => {
     if (!projectFiles || !fileName) return;
     
     setCurrentFile(fileName);
     setCurrentFileContent(projectFiles[fileName]?.content || '');
-    setCurrentLanguage(projectFiles[fileName]?.language || getLanguageFromFileName(fileName));
   };
   
   // Go to full code editor

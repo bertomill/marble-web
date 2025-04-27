@@ -29,7 +29,7 @@ if (isDevelopment && !fs.existsSync(cacheDir)) {
 }
 
 // Function to generate a cache key
-function generateCacheKey(data: any): string {
+function generateCacheKey(data: ProjectInput): string {
   const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
   return `generate-code-${hash}.json`;
 }
@@ -196,74 +196,113 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 };
 
-// Utility function to clean and repair potential JSON issues
-function attemptJsonRepair(jsonStr: string): string {
-  try {
-    // First, try simple parse to see if it's already valid
-    JSON.parse(jsonStr);
-    return jsonStr; // Already valid, no need to repair
-  } catch (e) {
-    console.log('JSON parsing failed, attempting repairs...');
-
-    // Strip any markdown or explanation text that might surround the JSON
-    // Look for the first { and last }
-    const firstBrace = jsonStr.indexOf('{');
-    const lastBrace = jsonStr.lastIndexOf('}');
-    
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-    }
-    
-    // Replace common escaped characters that might be problematic
-    jsonStr = jsonStr
-      .replace(/\\\\n/g, '\\n') // Double escaped newlines
-      .replace(/\\\\"/g, '\\"') // Double escaped quotes
-      .replace(/\\'/g, "'")     // Escaped single quotes (not needed in JSON)
-      .replace(/\\\\/g, '\\');  // Double backslashes
-    
-    // Fix unescaped quotes within JSON strings
-    let inString = false;
-    let result = '';
-    
-    for (let i = 0; i < jsonStr.length; i++) {
-      const current = jsonStr[i];
-      const next = jsonStr[i + 1];
-      
-      // Toggle string state when we see an unescaped quote
-      if (current === '"' && (i === 0 || jsonStr[i - 1] !== '\\')) {
-        inString = !inString;
-      }
-      
-      // When in string and see an unescaped inner quote that would terminate the string
-      if (inString && current === '"' && next !== ',' && next !== '}' && next !== ']' && next !== ':' && next !== '"' && next !== undefined) {
-        result += '\\"'; // Escape the inner quote
-        i++; // Skip the original quote
-      } else {
-        result += current;
-      }
-    }
-    
-    // Fix common trailing issues
-    result = result.trim();
-    if (!result.endsWith('}')) {
-      // Find the last valid closing brace
-      const lastValidBrace = result.lastIndexOf('}');
-      if (lastValidBrace !== -1) {
-        result = result.substring(0, lastValidBrace + 1);
-      }
-    }
-    
-    // Verify the repair worked
-    try {
-      JSON.parse(result);
-      console.log('JSON repair successful');
-    } catch (e) {
-      console.error('JSON repair failed:', e);
-    }
-    
-    return result;
-  }
+// Fix 'any' type on line 32:33 by adding a proper type interface
+interface ProjectInput {
+  projectId: string;
+  name: string;
+  description: string;
+  projectType: string;
+  targetAudience?: string;
+  valueProposition?: string;
+  userFlow?: Array<{id: string; content?: string; title?: string; description?: string}>;
+  aiResponse?: string;
 }
+
+// Fix the line with 'tempObj' using 'let' on line 411:9
+const attemptJsonRepair = (jsonStr: string) => {
+  console.log("Attempting to repair JSON:", jsonStr.substring(0, 100) + "...");
+  
+  try {
+    // Try parsing as is first
+    return JSON.parse(jsonStr);
+  } catch {
+    console.log("Initial JSON parse failed, attempting repairs...");
+    
+    // Basic repair: Fix missing colons
+    let repairedJson = jsonStr.replace(/("[\w\s]+")\s+(["{[])/g, '$1: $2');
+    
+    // Fix unescaped quotes within strings
+    repairedJson = repairedJson.replace(/([^\\])"/g, '$1\\"');
+    repairedJson = repairedJson.replace(/^"/, '\\"');
+    
+    // Fix trailing commas in objects/arrays
+    repairedJson = repairedJson.replace(/,\s*([\]}])/g, '$1');
+    
+    try {
+      return JSON.parse(repairedJson);
+    } catch {
+      console.log("Basic repairs failed, trying extraction...");
+      
+      // Try to extract valid JSON
+      const matches = jsonStr.match(/{.*}/);
+      if (matches && matches[0]) {
+        try {
+          return JSON.parse(matches[0]);
+        } catch {
+          console.log("Extraction failed, trying to rebuild...");
+          
+          const jsonObject = rebuildJsonFromMalformedInput(jsonStr);
+          if (jsonObject) {
+            return jsonObject;
+          }
+          
+          console.log("All repairs failed.");
+          throw new Error("Unable to repair malformed JSON");
+        }
+      }
+      
+      console.log("No JSON-like structure found.");
+      throw new Error("No valid JSON-like structure found");
+    }
+  }
+};
+
+// Fix error handling in all catch blocks
+const rebuildJsonFromMalformedInput = (input: string) => {
+  try {
+    // Try to find key-value pairs
+    const tempObj: Record<string, unknown> = {};
+    const keyValueRegex = /"([^"]+)"\s*:\s*("[^"]*"|[0-9]+|true|false|\{[^}]*\}|\[[^\]]*\])/g;
+    let match;
+    
+    while ((match = keyValueRegex.exec(input)) !== null) {
+      const key = match[1];
+      let value = match[2];
+      
+      try {
+        // If it looks like an object or array, try to parse it
+        if ((value.startsWith('{') && value.endsWith('}')) || 
+            (value.startsWith('[') && value.endsWith(']'))) {
+          try {
+            value = JSON.parse(value);
+          } catch {
+            // Keep as string if parsing fails
+          }
+        }
+        // Otherwise, try to parse it directly
+        else {
+          try {
+            value = JSON.parse(value);
+          } catch {
+            // Keep as string if parsing fails
+          }
+        }
+        
+        tempObj[key] = value;
+      } catch {
+        // Skip problematic key-value pairs
+      }
+    }
+    
+    if (Object.keys(tempObj).length > 0) {
+      return tempObj;
+    }
+    
+    return null;
+  } catch {
+    return null;
+  }
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -358,11 +397,17 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    IMPORTANT JSON FORMATTING REQUIREMENTS:
-    1. Double-check that all strings in your JSON are properly escaped, especially when they contain code with quotes
-    2. Ensure all quotes are properly closed
-    3. Do not include any backticks, markdown code block syntax, or explanations in your response
-    4. YOUR ENTIRE RESPONSE MUST BE ONLY THE JSON OBJECT - nothing else
+    !!!CRITICAL FORMATTING REQUIREMENTS!!!
+    1. Output ONLY a raw JSON object with NO explanation text whatsoever
+    2. Your response must start with { and end with } with no other characters
+    3. Every property name must be in double quotes followed immediately by a colon
+    4. NO markdown formatting, NO code blocks with backticks, NO comments outside the code content
+    5. Properly escape ALL quotes within code strings using backslash: \\"
+    6. Escape newlines in code as \\n
+    7. The entire response must be parseable by JSON.parse()
+    
+    Example of correct format:
+    {"index.html":{"content":"<!DOCTYPE html>\\n<html>\\n<head>\\n  <title>Example</title>\\n</head>\\n<body>\\n  <h1>Hello World</h1>\\n</body>\\n</html>","language":"html"}}
     
     Additional guidelines:
     1. Generate complete, functional code files that work together
@@ -409,7 +454,7 @@ export async function POST(request: NextRequest) {
       const message = await anthropic.messages.create({
         model: "claude-3-7-sonnet-20250219",
         max_tokens: 4000,
-        temperature: 0.7,
+        temperature: 0.5,  // Lower temperature for more consistent formatting
         system: systemPrompt,
         messages: [
           {

@@ -692,45 +692,6 @@ export default function NewProject() {
     );
   };
 
-  useEffect(() => {
-    if (aiResponse) {
-      try {
-        // Try to extract JSON from the response if it's wrapped in markdown code blocks
-        const jsonMatch = aiResponse.match(/```(?:json)?([\s\S]*?)```/);
-        const jsonContent = jsonMatch ? jsonMatch[1].trim() : aiResponse;
-        
-        // First attempt to parse as JSON directly
-        try {
-          const parsed = JSON.parse(jsonContent);
-          setParsedPlan(parsed);
-          setEditedContent(parsed);
-        } catch (jsonError) {
-          console.error('Not valid JSON, attempting to extract structured data from text', jsonError);
-          
-          // If direct parsing fails, extract structured data from markdown/text format
-          const extractedPlan = {
-            summary: extractSection(aiResponse, "Summary", "Key Features") || extractSection(aiResponse, "Project Summary", "Key Features") || "",
-            keyFeatures: extractListItems(aiResponse, "Key Features", "Recommended Tech Stack") || 
-                         extractListItems(aiResponse, "Key Features", "Tech Stack") || [],
-            techStack: extractListItems(aiResponse, "Tech Stack", "build") || 
-                       extractListItems(aiResponse, "Recommended Tech Stack", "Data Schema") ||
-                       extractListItems(aiResponse, "Recommended Tech Stack", "Build Steps") || [],
-            buildSteps: [], // Would need more complex parsing
-            dataSchema: [], // Would need more complex parsing
-            folderStructure: extractListItems(aiResponse, "Folder Structure", null) || []
-          };
-          
-          console.log("Extracted plan from text:", extractedPlan);
-          setParsedPlan(extractedPlan as ProjectPlan);
-          setEditedContent(extractedPlan);
-        }
-      } catch (error) {
-        console.error('Failed to parse AI response:', error);
-        // If parsing fails, just display the raw text
-      }
-    }
-  }, [aiResponse]);
-  
   // Helper function to extract a section of text between two headings
   const extractSection = (text: string, startSection: string, endSection: string | null): string => {
     const startRegex = new RegExp(`(?:##?\\s*${startSection}|${startSection})[:\\s]*(.*?)(?:##?\\s*${endSection}|$)`, 'is');
@@ -755,6 +716,44 @@ export default function NewProject() {
     return items;
   };
 
+  useEffect(() => {
+    if (aiResponse) {
+      try {
+        // Find the start and end indices of the JSON data
+        const jsonStart = aiResponse.indexOf('{');
+        const jsonEnd = aiResponse.lastIndexOf('}') + 1;
+        
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          // Extract and parse the JSON data
+          const jsonString = aiResponse.substring(jsonStart, jsonEnd);
+          try {
+            const parsedData = JSON.parse(jsonString);
+            setParsedPlan(parsedData);
+            setEditedContent(parsedData);
+          } catch (jsonError) {
+            console.error('Failed to parse JSON in AI response:', jsonError);
+            // If JSON parsing fails, try manual extraction
+            const extractedPlan = {
+              summary: extractSection(aiResponse, "Project Summary", "Key Features"),
+              keyFeatures: extractListItems(aiResponse, "Key Features", "Data Schema") || [],
+              dataSchema: [], // This would need custom parsing logic
+              buildSteps: [], // This would need custom parsing logic
+              techStack: extractListItems(aiResponse, "Tech Stack", "Folder Structure") || [],
+              folderStructure: extractListItems(aiResponse, "Folder Structure", null) || []
+            };
+            
+            console.log("Extracted plan from text:", extractedPlan);
+            setParsedPlan(extractedPlan as ProjectPlan);
+            setEditedContent(extractedPlan);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse AI response:', error);
+        // If parsing fails, just display the raw text
+      }
+    }
+  }, [aiResponse, extractListItems]);
+  
   const toggleEditSection = (section: string) => {
     setEditingSections(prev => ({
       ...prev,

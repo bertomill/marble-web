@@ -1,21 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import AuthStatus from '@/components/AuthStatus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress'; 
 import { toast } from "@/components/ui/use-toast";
 import dynamic from 'next/dynamic';
-import { useParams } from 'next/navigation';
 import { Save, ArrowLeft, Check, Download } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Dynamically import the CodeEditor component to avoid hydration issues
 const CodeEditor = dynamic(() => import('@/components/CodeEditor'), { 
@@ -29,6 +28,16 @@ const FileExplorer = dynamic(() => import('@/components/FileExplorer'), {
   loading: () => <div className="h-full w-full bg-zinc-100 animate-pulse rounded" />
 });
 
+// Dynamically import the PreviewComponent component
+const PreviewComponent = dynamic(() => import('@/components/PreviewComponent'), { ssr: false });
+
+// Define interfaces for file data
+interface FileData {
+  content: string;
+  language: string;
+  lastModified?: number | Date;
+}
+
 // Define interfaces for project data
 interface UserJourneyStep {
   id: string;
@@ -36,7 +45,7 @@ interface UserJourneyStep {
   description: string;
 }
 
-interface ProjectData {
+interface Project {
   id: string;
   name: string;
   description: string;
@@ -48,15 +57,8 @@ interface ProjectData {
   valueProposition?: string;
   userFlow?: UserJourneyStep[];
   files?: Record<string, FileData>;
+  aiResponse?: string;
 }
-
-interface FileData {
-  content: string;
-  language: string;
-  lastModified: number | Date;
-}
-
-type FileSystemType = Record<string, FileData>;
 
 export default function ProjectCodePage() {
   const { user, loading } = useAuth();
@@ -64,7 +66,7 @@ export default function ProjectCodePage() {
   const params = useParams();
   const projectId = params.id as string;
   
-  const [project, setProject] = useState<ProjectData | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
@@ -75,6 +77,9 @@ export default function ProjectCodePage() {
   const [buildProgress, setBuildProgress] = useState(0);
   const [buildStatus, setBuildStatus] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('code');
+  const [isFullPage] = useState(false);
+  const [projectFiles, setProjectFiles] = useState<Record<string, FileData>>({});
 
   // Fetch project data
   useEffect(() => {
@@ -89,34 +94,34 @@ export default function ProjectCodePage() {
         const projectSnap = await getDoc(projectRef);
         
         if (projectSnap.exists()) {
-          const projectData = projectSnap.data() as ProjectData;
+          const projectData = projectSnap.data() as Project;
           setProject(projectData);
 
           // If status is 'planning', we're in build mode
           setIsBuildMode(projectData.status === 'planning' || projectData.status === 'planning_complete');
 
-          // Initialize with default files if none exist
-          if (!projectData.files || Object.keys(projectData.files).length === 0) {
-            // If in build mode, we'll create files during the build process
-            if (!isBuildMode) {
-              const defaultFiles = createDefaultFiles(projectData.projectType);
-              setProject({
-                ...projectData,
-                files: defaultFiles
-              });
-
-              // Set the first file as current
-              const firstFileName = Object.keys(defaultFiles)[0];
-              setCurrentFile(firstFileName);
-              setCurrentFileContent(defaultFiles[firstFileName].content);
-              setCurrentLanguage(defaultFiles[firstFileName].language);
-            }
-          } else {
-            // Set the first existing file as current
+          // If files exist, load them
+          if (projectData.files && Object.keys(projectData.files).length > 0) {
+            setProjectFiles(projectData.files);
+            
+            // Set default file
             const firstFileName = Object.keys(projectData.files)[0];
             setCurrentFile(firstFileName);
             setCurrentFileContent(projectData.files[firstFileName].content);
             setCurrentLanguage(projectData.files[firstFileName].language);
+          } else {
+            // Create default files based on project type
+            const defaultFiles = createDefaultFiles(projectData);
+            setProjectFiles(defaultFiles);
+            
+            // Set default file
+            const firstFileName = Object.keys(defaultFiles)[0];
+            setCurrentFile(firstFileName);
+            setCurrentFileContent(defaultFiles[firstFileName].content);
+            setCurrentLanguage(defaultFiles[firstFileName].language);
+            
+            // Save default files to the project
+            await updateDoc(projectRef, { files: defaultFiles });
           }
         } else {
           setError('Project not found');
@@ -134,22 +139,23 @@ export default function ProjectCodePage() {
     }
   }, [projectId, user, loading, router, isBuildMode]);
 
-  // Create default files based on project type
-  const createDefaultFiles = (projectType: string): FileSystemType => {
-    if (projectType === 'website') {
-      return {
-        'index.html': {
-          content: `<!DOCTYPE html>
+  // Function to create default files based on project type
+  const createDefaultFiles = (project: Project) => {
+    const files: Record<string, FileData> = {};
+    
+    // Default files for all projects
+    files['index.html'] = {
+      content: `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Website</title>
+  <title>${project.name || 'New Project'}</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <h1>Welcome to My Website</h1>
+    <h1>${project.name || 'New Project'}</h1>
     <nav>
       <ul>
         <li><a href="#home">Home</a></li>
@@ -158,31 +164,50 @@ export default function ProjectCodePage() {
       </ul>
     </nav>
   </header>
+  
   <main>
     <section id="home">
-      <h2>Home</h2>
-      <p>This is the home section of my website.</p>
+      <h2>Welcome to ${project.name || 'Our Project'}</h2>
+      <p>${project.description || 'This is a description of our amazing project.'}</p>
     </section>
+    
     <section id="about">
-      <h2>About</h2>
-      <p>Learn more about what we do.</p>
+      <h2>About Us</h2>
+      <p>We are dedicated to creating high-quality solutions.</p>
     </section>
+    
     <section id="contact">
-      <h2>Contact</h2>
-      <p>Get in touch with us.</p>
+      <h2>Contact Us</h2>
+      <form>
+        <div>
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name">
+        </div>
+        <div>
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email">
+        </div>
+        <div>
+          <label for="message">Message:</label>
+          <textarea id="message" name="message"></textarea>
+        </div>
+        <button type="submit">Send</button>
+      </form>
     </section>
   </main>
+  
   <footer>
-    <p>&copy; 2024 My Website. All rights reserved.</p>
+    <p>&copy; ${new Date().getFullYear()} ${project.name || 'Our Project'}. All rights reserved.</p>
   </footer>
+  
   <script src="script.js"></script>
 </body>
 </html>`,
-          language: 'html',
-          lastModified: Date.now()
-        },
-        'styles.css': {
-          content: `/* Basic reset */
+      language: 'html'
+    };
+    
+    files['styles.css'] = {
+      content: `/* Global Styles */
 * {
   margin: 0;
   padding: 0;
@@ -193,18 +218,22 @@ body {
   font-family: Arial, sans-serif;
   line-height: 1.6;
   color: #333;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
 }
 
+a {
+  text-decoration: none;
+  color: #007bff;
+}
+
+/* Header */
 header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 30px;
+  background-color: #f8f9fa;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+  margin-bottom: 1rem;
 }
 
 nav ul {
@@ -212,325 +241,136 @@ nav ul {
   list-style: none;
 }
 
-nav li {
-  margin-left: 20px;
+nav ul li {
+  margin-right: 1rem;
 }
 
-nav a {
-  text-decoration: none;
-  color: #333;
-}
-
-nav a:hover {
-  color: #0066cc;
+/* Main Content */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
 }
 
 section {
-  margin-bottom: 40px;
+  margin-bottom: 3rem;
 }
 
-h1, h2 {
-  margin-bottom: 15px;
+section h2 {
+  margin-bottom: 1rem;
+  color: #0056b3;
 }
 
-footer {
-  text-align: center;
-  padding: 20px 0;
-  border-top: 1px solid #eee;
-  margin-top: 30px;
-}`,
-          language: 'css',
-          lastModified: Date.now()
-        },
-        'script.js': {
-          content: `// Main JavaScript file
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Document is ready!');
-  
-  // Add smooth scrolling for navigation
-  document.querySelectorAll('nav a').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-      e.preventDefault();
-      
-      const href = this.getAttribute('href');
-      if (!href) return;
-      
-      const targetSection = document.querySelector(href);
-      if (targetSection) {
-        window.scrollTo({
-          top: targetSection.offsetTop - 70,
-          behavior: 'smooth'
-        });
-      }
-    });
-  });
-  
-  // Example of form handling
-  const contactForm = document.getElementById('contact-form');
-  if (contactForm) {
-    contactForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      console.log('Form submitted');
-      // Add form handling logic here
-    });
-  }
-});`,
-          language: 'javascript',
-          lastModified: Date.now()
-        }
-      };
-    } else if (projectType === 'app') {
-      return {
-        'App.js': {
-          content: `import React, { useState } from 'react';
-import './App.css';
-
-function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Welcome to My App</h1>
-        <p>This is a simple React application.</p>
-        <div className="counter">
-          <p>You clicked {count} times</p>
-          <button onClick={() => setCount(count + 1)}>
-            Increase Count
-          </button>
-          <button onClick={() => setCount(count - 1)}>
-            Decrease Count
-          </button>
-          <button onClick={() => setCount(0)}>
-            Reset Count
-          </button>
-        </div>
-      </header>
-      <main>
-        <section className="features">
-          <h2>Features</h2>
-          <ul>
-            <li>Simple state management</li>
-            <li>Responsive design</li>
-            <li>Easy to customize</li>
-          </ul>
-        </section>
-      </main>
-      <footer>
-        <p>&copy; 2024 My App. All rights reserved.</p>
-      </footer>
-    </div>
-  );
+/* Form Styles */
+form div {
+  margin-bottom: 1rem;
 }
 
-export default App;`,
-          language: 'javascript',
-          lastModified: Date.now()
-        },
-        'App.css': {
-          content: `.App {
-  text-align: center;
-  font-family: Arial, sans-serif;
+label {
+  display: block;
+  margin-bottom: 0.5rem;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 40vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  padding: 2rem;
-}
-
-.counter {
-  margin: 2rem 0;
-  padding: 1rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+input, textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }
 
 button {
-  background-color: #61dafb;
+  background-color: #007bff;
+  color: white;
   border: none;
-  color: #282c34;
   padding: 0.5rem 1rem;
-  margin: 0.5rem;
   border-radius: 4px;
-  font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.3s;
 }
 
 button:hover {
-  background-color: #4fa8c7;
+  background-color: #0056b3;
 }
 
-main {
-  padding: 2rem;
-}
-
-.features {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: left;
-}
-
-.features ul {
-  list-style-type: circle;
-  padding-left: 2rem;
-}
-
+/* Footer */
 footer {
   background-color: #f8f9fa;
+  text-align: center;
   padding: 1rem;
   margin-top: 2rem;
 }`,
-          language: 'css',
-          lastModified: Date.now()
-        },
-        'index.js': {
-          content: `import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
+      language: 'css'
+    };
+    
+    files['script.js'] = {
+      content: `// Navigation smooth scroll
+document.querySelectorAll('nav a').forEach(anchor => {
+  anchor.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    const targetId = this.getAttribute('href');
+    const targetElement = document.querySelector(targetId);
+    
+    if (targetElement) {
+      window.scrollTo({
+        top: targetElement.offsetTop - 100,
+        behavior: 'smooth'
+      });
+    }
+  });
+});
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
-);`,
-          language: 'javascript',
-          lastModified: Date.now()
-        },
-        'index.css': {
-          content: `body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}`,
-          language: 'css',
-          lastModified: Date.now()
-        }
-      };
-    } else {
-      // Generic default file for any other project type
-      return {
-        'main.js': {
-          content: `// Main application file
-console.log('Application started');
-
-// Define main application class
-class Application {
-  constructor() {
-    this.initialized = false;
-    console.log('Application class instantiated');
-  }
-
-  initialize() {
-    if (this.initialized) {
-      console.warn('Application already initialized');
+// Form submission
+const form = document.querySelector('form');
+if (form) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const messageInput = document.getElementById('message');
+    
+    // Simple validation
+    if (!nameInput.value || !emailInput.value || !messageInput.value) {
+      alert('Please fill out all fields');
       return;
     }
     
-    console.log('Initializing application...');
-    this.initialized = true;
-    console.log('Application initialized successfully');
-  }
-
-  start() {
-    if (!this.initialized) {
-      console.error('Cannot start application: not initialized');
-      return;
-    }
-    
-    console.log('Starting application...');
-    console.log('Application running');
-  }
+    // In a real application, you would send this data to a server
+    alert('Thanks for your message! We will get back to you soon.');
+    form.reset();
+  });
 }
 
-// Create and run the application
-const app = new Application();
-app.initialize();
-app.start();`,
-          language: 'javascript',
-          lastModified: Date.now()
-        },
-        'index.html': {
-          content: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Project</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div id="app">
-    <h1>My Project</h1>
-    <p>Welcome to my project!</p>
-  </div>
-  <script src="main.js"></script>
-</body>
-</html>`,
-          language: 'html',
-          lastModified: Date.now()
-        },
-        'styles.css': {
-          content: `body {
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-  margin: 0;
-  padding: 20px;
-  background-color: #f8f9fa;
-}
-
-#app {
-  max-width: 800px;
-  margin: 0 auto;
-  background: white;
-  padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-  color: #333;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 10px;
+// Add dynamic year to footer
+const yearElement = document.querySelector('footer p');
+if (yearElement) {
+  const currentYear = new Date().getFullYear();
+  yearElement.textContent = yearElement.textContent.replace(currentYear, currentYear);
 }`,
-          language: 'css',
-          lastModified: Date.now()
-        }
-      };
-    }
+      language: 'javascript'
+    };
+    
+    return files;
   };
 
   // Handle file selection
   const handleFileSelect = (fileName: string) => {
-    // Prompt to save if current file is dirty
-    if (isDirty) {
-      if (window.confirm('You have unsaved changes. Save before switching files?')) {
-        saveCurrentFile();
-      }
-      setIsDirty(false);
+    if (fileName === currentFile) return;
+    
+    // Save current file before switching
+    if (currentFile && projectFiles[currentFile]) {
+      const updatedFiles = { ...projectFiles };
+      updatedFiles[currentFile] = {
+        ...updatedFiles[currentFile],
+        content: currentFileContent
+      };
+      setProjectFiles(updatedFiles);
     }
     
-    if (project?.files && project.files[fileName]) {
-      setCurrentFile(fileName);
-      setCurrentFileContent(project.files[fileName].content);
-      setCurrentLanguage(project.files[fileName].language);
-    }
+    // Set new current file
+    setCurrentFile(fileName);
+    setCurrentFileContent(projectFiles[fileName]?.content || '');
+    setCurrentLanguage(projectFiles[fileName]?.language || getLanguageFromFileName(fileName));
   };
 
   // Handle file content change
@@ -541,96 +381,29 @@ h1 {
     }
   };
 
-  // Save the current file
-  const saveCurrentFile = async () => {
-    if (!currentFile || !project || !user) return;
-    
-    try {
-      // Update local state
-      const updatedFiles = {
-        ...project.files,
-        [currentFile]: {
-          content: currentFileContent,
-          language: currentLanguage,
-          lastModified: Date.now()
-        }
-      };
-      
-      setProject({
-        ...project,
-        files: updatedFiles
-      });
-      
-      // Update in Firebase 
-      await updateDoc(doc(db, 'projects', projectId), {
-        [`files.${currentFile}`]: {
-          content: currentFileContent,
-          language: currentLanguage,
-          lastModified: Date.now()
-        }
-      });
-      
-      setIsDirty(false);
-      toast({
-        title: "File saved",
-        description: `${currentFile} has been saved successfully.`
-      });
-    } catch (error) {
-      console.error('Error saving file:', error);
-      toast({
-        title: "Error saving file",
-        description: "There was a problem saving your file.",
-        variant: "destructive"
-      });
-    }
-  };
-
   // Handle file creation
-  const handleFileCreate = async (fileName: string, content: string, language: string) => {
-    if (!project || !user) return;
-    
-    try {
-      // Update local state
-      const updatedFiles = {
-        ...project.files,
-        [fileName]: {
-          content,
-          language,
-          lastModified: Date.now()
-        }
-      };
-      
-      setProject({
-        ...project,
-        files: updatedFiles
-      });
-      
-      // Update in Firebase 
-      await updateDoc(doc(db, 'projects', projectId), {
-        [`files.${fileName}`]: {
-          content,
-          language,
-          lastModified: Date.now()
-        }
-      });
-      
-      // Select the new file
-      setCurrentFile(fileName);
-      setCurrentFileContent(content);
-      setCurrentLanguage(language);
-      
-      toast({
-        title: "File created",
-        description: `${fileName} has been created successfully.`
-      });
-    } catch (error) {
-      console.error('Error creating file:', error);
-      toast({
-        title: "Error creating file",
-        description: "There was a problem creating the file.",
-        variant: "destructive"
-      });
+  const handleFileCreate = (fileName: string) => {
+    if (projectFiles[fileName]) {
+      alert(`File ${fileName} already exists.`);
+      return;
     }
+    
+    const language = getLanguageFromFileName(fileName);
+    
+    // Create new file
+    const updatedFiles = { ...projectFiles };
+    updatedFiles[fileName] = {
+      content: '',
+      language
+    };
+    
+    setProjectFiles(updatedFiles);
+    setCurrentFile(fileName);
+    setCurrentFileContent('');
+    setCurrentLanguage(language);
+    
+    // Save to Firebase
+    saveProject(updatedFiles);
   };
 
   // Build the project
@@ -670,6 +443,37 @@ h1 {
         });
       }, 500);
       
+      // Create empty default file structure first
+      const defaultFiles = createDefaultFiles(project);
+      
+      // Update project with default files immediately
+      await updateDoc(doc(db, 'projects', projectId), {
+        files: defaultFiles,
+        status: 'building' // Change status to indicate that files are being created
+      });
+      
+      // Update local state
+      setProjectFiles(defaultFiles);
+      
+      // Set the first file as current to show editor with default content
+      const firstFileName = Object.keys(defaultFiles)[0];
+      setCurrentFile(firstFileName);
+      setCurrentFileContent(defaultFiles[firstFileName].content);
+      setCurrentLanguage(defaultFiles[firstFileName].language);
+      
+      // Transition to editor view immediately
+      setIsBuildMode(false);
+      setIsBuilding(false);
+      
+      // Now make the API call to generate code
+      setBuildStatus('Generating code in the background...');
+      
+      // Show toast that files are being generated
+      toast({
+        title: "Editor ready",
+        description: "Basic files loaded. AI code generation is continuing in the background."
+      });
+      
       // Make API call to generate code
       const response = await fetch('/api/generate-code', {
         method: 'POST',
@@ -683,107 +487,115 @@ h1 {
           projectType: project.projectType,
           targetAudience: project.targetAudience || '',
           valueProposition: project.valueProposition || '',
-          userFlow: project.userFlow || []
+          userFlow: project.userFlow || [],
+          aiResponse: project.aiResponse || ''
         }),
       });
-
+      
       if (response.ok) {
         const data = await response.json();
-        const generatedFiles: Record<string, FileData> = data.files;
         
-        // Update project with generated files
-        await updateDoc(doc(db, 'projects', projectId), {
-          files: generatedFiles,
-          status: 'built'
-        });
-        
-        // Update local state
-        setProject({
-          ...project,
-          files: generatedFiles,
-          status: 'built'
-        });
-        
-        // Set the first file as current
-        const firstFileName = Object.keys(generatedFiles)[0];
-        setCurrentFile(firstFileName);
-        setCurrentFileContent(generatedFiles[firstFileName].content);
-        setCurrentLanguage(generatedFiles[firstFileName].language);
-        
-        // Complete the build
-        setBuildProgress(100);
-        setBuildStatus('Build completed successfully!');
-        setIsBuildMode(false);
-        
-        // Clear interval if it's still running
-        clearInterval(buildProgressInterval);
-        
-        toast({
-          title: "Build completed",
-          description: "Your project has been built successfully!"
-        });
-        
-        // Slight delay before showing the editor
-        setTimeout(() => {
-          setIsBuilding(false);
-        }, 1000);
+        if (data.files && Object.keys(data.files).length > 0) {
+          // Update each file individually to avoid JSON parsing issues
+          for (const [fileName, fileData] of Object.entries(data.files)) {
+            // Skip invalid file data
+            if (!fileData || typeof fileData !== 'object') continue;
+            
+            // Type assertion to help TypeScript understand our file data structure
+            const typedFileData = fileData as FileData;
+            
+            // Update this file in Firebase
+            await updateDoc(doc(db, 'projects', projectId), {
+              [`files.${fileName}`]: {
+                content: typedFileData.content || '// Generated content',
+                language: typedFileData.language || 'text',
+                lastModified: Date.now()
+              }
+            });
+            
+            // Also update in local state
+            if (projectFiles) {
+              setProjectFiles({
+                ...projectFiles,
+                [fileName]: {
+                  content: typedFileData.content || '// Generated content',
+                  language: typedFileData.language || 'text',
+                  lastModified: Date.now()
+                }
+              });
+            }
+            
+            // If this is the currently viewed file, update its content in editor
+            if (currentFile === fileName) {
+              setCurrentFileContent(typedFileData.content || '// Generated content');
+              setCurrentLanguage(typedFileData.language || 'text');
+            }
+          }
+          
+          // Mark project as fully built
+          await updateDoc(doc(db, 'projects', projectId), {
+            status: 'built'
+          });
+          
+          // Update local state
+          setProject({
+            ...project,
+            status: 'built'
+          });
+          
+          // Complete the build
+          setBuildProgress(100);
+          setBuildStatus('Code generation completed successfully!');
+          
+          toast({
+            title: "Code generation completed",
+            description: "Your project code has been generated successfully!"
+          });
+        }
       } else {
-        // Fall back to default files if API fails
-        const defaultFiles = createDefaultFiles(project.projectType);
-        const generatedFiles: Record<string, FileData> = defaultFiles;
+        // API call failed but we already have default files loaded, so just notify the user
+        toast({
+          title: "Code generation issue",
+          description: "We encountered an issue generating custom code. Default templates loaded instead.",
+          variant: "destructive"
+        });
         
-        // Update project with generated files
+        // Mark project as built anyway since we have the default files
         await updateDoc(doc(db, 'projects', projectId), {
-          files: generatedFiles,
           status: 'built'
         });
         
         // Update local state
         setProject({
           ...project,
-          files: generatedFiles,
           status: 'built'
         });
-        
-        // Set the first file as current
-        const firstFileName = Object.keys(generatedFiles)[0];
-        setCurrentFile(firstFileName);
-        setCurrentFileContent(generatedFiles[firstFileName].content);
-        setCurrentLanguage(generatedFiles[firstFileName].language);
-        
-        // Complete the build
-        setBuildProgress(100);
-        setBuildStatus('Build completed successfully!');
-        setIsBuildMode(false);
-        
-        // Clear interval if it's still running
-        clearInterval(buildProgressInterval);
-        
-        toast({
-          title: "Build completed",
-          description: "Your project has been built successfully!"
-        });
-        
-        // Slight delay before showing the editor
-        setTimeout(() => {
-          setIsBuilding(false);
-        }, 1000);
       }
+      
+      // Clear interval if it's still running
+      clearInterval(buildProgressInterval);
     } catch (error) {
-      console.error('Error building project:', error);
-      setBuildStatus('Failed to build project. Please try again.');
+      console.error('Error in build process:', error);
+      
+      // Even if there's an error, we still have default files
       toast({
-        title: "Build failed",
-        description: "There was a problem building your project.",
+        title: "Code generation issue",
+        description: "We encountered an issue during the build process. Default templates loaded.",
         variant: "destructive"
       });
+      
+      setBuildStatus('Build completed with default templates.');
+      setBuildProgress(100);
+      
+      // Make sure the editor is showing
+      setIsBuildMode(false);
       setIsBuilding(false);
     }
   };
 
   // Download all project files as a ZIP
   const downloadProjectFiles = () => {
-    if (!project?.files || Object.keys(project.files).length === 0) {
+    if (!projectFiles || Object.keys(projectFiles).length === 0) {
       toast({
         title: "No files to download",
         description: "Your project doesn't have any files to download yet.",
@@ -793,7 +605,7 @@ h1 {
     }
 
     // Get the files to download
-    const files = project.files;
+    const files = projectFiles;
 
     // Dynamically import JSZip
     import('jszip').then((JSZipModule) => {
@@ -811,7 +623,7 @@ h1 {
         const url = URL.createObjectURL(content);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${project.name.replace(/\s+/g, '-').toLowerCase()}-files.zip`;
+        a.download = `${project?.name?.replace(/\s+/g, '-').toLowerCase() || 'project'}-files.zip`;
         document.body.appendChild(a);
         a.click();
         
@@ -841,6 +653,107 @@ h1 {
         variant: "destructive"
       });
     });
+  };
+
+  const getLanguageFromFileName = (fileName: string): string => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    if (extension === 'html' || extension === 'htm') return 'html';
+    if (extension === 'css') return 'css';
+    if (['js', 'jsx'].includes(extension)) return 'javascript';
+    if (['ts', 'tsx'].includes(extension)) return 'typescript';
+    
+    return 'text';
+  };
+
+  const saveCurrentFile = async () => {
+    if (!currentFile) return;
+    
+    const updatedFiles = { ...projectFiles };
+    updatedFiles[currentFile] = {
+      ...updatedFiles[currentFile],
+      content: currentFileContent
+    };
+    
+    setProjectFiles(updatedFiles);
+    await saveProject(updatedFiles);
+  };
+  
+  const saveProject = async (files: Record<string, FileData>) => {
+    if (!projectId || !project) return;
+    
+    try {
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, { files });
+    } catch (error) {
+      console.error('Error saving project:', error);
+    }
+  };
+
+  // Function to generate file content using Claude
+  const generateFileContent = async () => {
+    if (!currentFile) return;
+    
+    try {
+      toast({
+        title: "Generating code",
+        description: `Creating ${currentFile} with Claude 3.7...`,
+      });
+      
+      // Get list of other files in the project
+      const existingFiles = Object.keys(projectFiles);
+      
+      // Call our API endpoint
+      const response = await fetch('/api/generate-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: currentFile,
+          language: currentLanguage,
+          projectName: project?.name || '',
+          projectDescription: project?.description || '',
+          projectType: project?.projectType || 'web',
+          existingFiles
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.content) {
+          // Update the editor content
+          setCurrentFileContent(data.content);
+          setIsDirty(true);
+          
+          toast({
+            title: "Code generated",
+            description: `${currentFile} has been created with Claude 3.7. Remember to save your changes!`,
+          });
+        } else {
+          toast({
+            title: "Generation issue",
+            description: "No content was returned. Please try again.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Generation failed",
+          description: error.error || "Something went wrong. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error generating file content:', error);
+      toast({
+        title: "Generation error",
+        description: "Failed to generate code. Please try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Loading state
@@ -923,7 +836,7 @@ h1 {
                   />
                   <h2 className="text-2xl font-bold mb-2">Ready to Build Your Project?</h2>
                   <p className="text-zinc-600 mb-4">
-                    Marble will generate the initial code structure for your {project?.projectType} 
+                    Marble will generate the initial code structure for your {project?.projectType || 'project'} 
                     based on your project requirements.
                   </p>
                 </div>
@@ -969,7 +882,7 @@ h1 {
 
   // Render code editor UI
   return (
-    <div className="flex flex-col h-screen bg-zinc-50">
+    <div className={`${isFullPage ? 'fixed inset-0 z-50 bg-background' : ''} flex flex-col h-full w-full`}>
       <header className="py-3 px-6 border-b bg-white shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -1023,44 +936,70 @@ h1 {
         </div>
       </header>
 
-      <div className="flex-grow flex">
-        {/* File Explorer */}
-        <div className="w-64 border-r border-zinc-200 bg-white overflow-y-auto">
-          {project?.files && Object.keys(project.files).length > 0 ? (
-            <FileExplorer
-              files={project.files || {}}
-              onFileSelect={handleFileSelect}
-              onFileCreate={handleFileCreate}
-              selectedFile={currentFile}
-            />
-          ) : (
-            <div className="p-4 text-center text-zinc-400">
-              <p>No files available</p>
-            </div>
-          )}
-        </div>
-        
-        {/* Editor Area */}
-        <div className="flex-grow">
-          {currentFile ? (
-            <div className="h-full">
-              <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-sm flex justify-between">
-                <span>{currentFile}{isDirty && ' •'}</span>
-                <span className="text-zinc-400">{currentLanguage}</span>
+      <div className="flex-1 overflow-hidden">
+        <div className="flex h-full">
+          <div className="w-64 border-r border-zinc-200 bg-white overflow-y-auto">
+            {Object.keys(projectFiles).length > 0 ? (
+              <FileExplorer
+                files={projectFiles}
+                onFileSelect={handleFileSelect}
+                onFileCreate={handleFileCreate}
+                selectedFile={currentFile}
+              />
+            ) : (
+              <div className="p-4 text-center text-zinc-400">
+                <p>No files available</p>
               </div>
-              <div className="h-[calc(100%-35px)]">
-                <CodeEditor
-                  language={currentLanguage}
-                  value={currentFileContent}
-                  onChange={handleEditorChange}
-                />
+            )}
+          </div>
+          
+          <div className="flex-1 overflow-auto">
+            <Tabs 
+              value={activeTab} 
+              onValueChange={setActiveTab}
+              className="w-full h-full flex flex-col"
+            >
+              <div className="border-b bg-white">
+                <TabsList className="border-b-0">
+                  <TabsTrigger value="code">Code</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                </TabsList>
               </div>
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-zinc-400">Select a file to edit</p>
-            </div>
-          )}
+              
+              <TabsContent value="code" className="flex-1 p-0 m-0 h-full">
+                {currentFile && (
+                  <div className="h-full flex flex-col">
+                    <div className="p-2 bg-white border-b flex justify-between items-center">
+                      <span className="text-sm font-medium text-zinc-700">{currentFile}</span>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                        onClick={generateFileContent}
+                      >
+                        Generate with Claude
+                      </Button>
+                    </div>
+                    <div className="flex-1">
+                      <CodeEditor
+                        value={currentFileContent}
+                        language={currentLanguage}
+                        onChange={handleEditorChange}
+                      />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="preview" className="flex-1 p-0 m-0 h-full">
+                <div className="w-full h-[calc(100vh-200px)] bg-white overflow-hidden">
+                  <PreviewComponent 
+                    files={projectFiles}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
     </div>
