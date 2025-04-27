@@ -3,14 +3,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
-  FolderOpen, 
   File, 
   FilePlus, 
-  FolderPlus, 
-  ChevronDown, 
-  ChevronRight,
-  Edit,
-  Trash,
   Check 
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -159,7 +153,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
       
       <div className="mt-2 space-y-1">
-        {Object.entries(files).map(([fileName, fileInfo]) => (
+        {Object.keys(files).map((fileName) => (
           <div 
             key={fileName}
             className={`flex items-center py-1 px-2 rounded text-sm ${

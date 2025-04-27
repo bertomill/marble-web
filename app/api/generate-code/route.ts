@@ -29,7 +29,7 @@ if (isDevelopment && !fs.existsSync(cacheDir)) {
 }
 
 // Function to generate a cache key
-function generateCacheKey(data: any): string {
+function generateCacheKey(data: Record<string, unknown>): string {
   const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
   return `generate-code-${hash}.json`;
 }
@@ -202,8 +202,8 @@ function attemptJsonRepair(jsonStr: string): string {
     // First, try simple parse to see if it's already valid
     JSON.parse(jsonStr);
     return jsonStr; // Already valid, no need to repair
-  } catch (e) {
-    console.log('JSON parsing failed, attempting repairs...');
+  } catch (error) {
+    console.log('JSON parsing failed, attempting repairs...', error);
 
     // Strip any markdown or explanation text that might surround the JSON
     // Look for the first { and last }
