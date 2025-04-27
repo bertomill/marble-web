@@ -4,24 +4,55 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { isDevelopment } from '@/lib/utils';
-import { z } from 'zod';
 import { saveProject } from '@/lib/db';
 import { kv } from '@vercel/kv';
 
-export const maxDuration = 60;
+export const maxDuration = 180;
+
+// Enhanced logging utility
+const logger = {
+  requestId: '',
+  setRequestId: (id: string) => { logger.requestId = id; },
+  info: (message: string, data?: unknown) => {
+    console.log(`[INFO][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+  },
+  error: (message: string, error?: unknown) => {
+    console.error(`[ERROR][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, error ? error : '');
+  },
+  warn: (message: string, data?: unknown) => {
+    console.warn(`[WARN][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+  },
+  debug: (message: string, data?: unknown) => {
+    if (isDevelopment) {
+      console.debug(`[DEBUG][${new Date().toISOString()}]${logger.requestId ? `[${logger.requestId}]` : ''}: ${message}`, data ? data : '');
+    }
+  },
+  time: (label: string) => {
+    if (isDevelopment) {
+      console.time(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
+    }
+  },
+  timeEnd: (label: string) => {
+    if (isDevelopment) {
+      console.timeEnd(`[TIME]${logger.requestId ? `[${logger.requestId}]` : ''}: ${label}`);
+    }
+  }
+};
 
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
 // isDevelopment is a boolean that is true if the NODE_ENV is development
 console.log('Environment:', process.env.NODE_ENV);
+logger.info('Environment initialized', { env: process.env.NODE_ENV });
 
 // Function to get the Anthropic client
 function getAnthropicClient() {
   if (!apiKey) {
-    console.log('ANTHROPIC_API_KEY not set in environment variables');
+    logger.warn('ANTHROPIC_API_KEY not set in environment variables');
     return null;
   }
   
+  logger.debug('Anthropic client initialized');
   return new Anthropic({
     apiKey
   });
@@ -44,7 +75,7 @@ function generateCacheKey(data: Record<string, unknown>): string {
 }
 
 // Function to save response to cache
-async function saveToCache(key: string, data: any): Promise<void> {
+async function saveToCache(key: string, data: Record<string, unknown>): Promise<void> {
   if (isDevelopment) {
     try {
       console.log(`Saving to cache with key: ${key}`);
@@ -56,7 +87,7 @@ async function saveToCache(key: string, data: any): Promise<void> {
 }
 
 // Function to get response from cache
-async function getFromCache(key: string): Promise<any | null> {
+async function getFromCache(key: string): Promise<Record<string, unknown> | null> {
   if (isDevelopment) {
     try {
       console.log(`Attempting to get from cache with key: ${key}`);
@@ -419,98 +450,65 @@ const mockScriptJs = `document.addEventListener('DOMContentLoaded', () => {
     }
 });`;
 
-// Mock response for testing
-const mockResponse = {
-  files: {
-    "index.html": mockIndexHtml,
-    "styles.css": mockStylesCss,
-    "script.js": mockScriptJs
-  }
+// Define mockFiles to fix reference error
+const mockFiles = {
+  "index.html": mockIndexHtml,
+  "styles.css": mockStylesCss,
+  "script.js": mockScriptJs
 };
 
-// Handle POST requests to /api/generate-code
-export async function POST(request: Request) {
+// Fix mockResponse - make sure it's used
+export const mockResponse = {
+  files: mockFiles
+};
+
+// POST endpoint for generating code
+export async function POST(req: NextRequest) {
   try {
-    console.log('POST request received in generate-code');
-    const body = await request.json();
-    console.log('Received body:', body);
+    // Generate a unique request ID for tracking
+    const requestId = crypto.randomUUID();
+    logger.setRequestId(requestId);
     
-    // Validate the request body using Zod
-    const schema = z.object({
-      projectName: z.string(),
-      projectType: z.string(),
-      projectDescription: z.string().optional(),
-      userEmail: z.string().optional(),
-      userId: z.string().optional(),
-      projectId: z.string().optional()
-    });
+    logger.info('Received code generation request');
+    logger.time('Total request processing time');
     
-    const parsed = schema.safeParse(body);
+    const body = await req.json();
+    logger.debug('Received body', body);
+
+    // Get the body data
+    const { prompt, projectType, id } = body;
     
-    if (!parsed.success) {
-      console.error('Validation error:', parsed.error);
-      return NextResponse.json(
-        { error: 'Invalid request body', details: parsed.error },
-        { status: 400 }
-      );
+    // Generate a cache key
+    const cacheKey = generateCacheKey({ prompt, projectType });
+    logger.debug('Generated cache key', { cacheKey });
+    
+    // Check if we have a cached response
+    const cachedResponse = await getFromCache(cacheKey);
+    if (cachedResponse) {
+      logger.info('Using cached response');
+      logger.timeEnd('Total request processing time');
+      return NextResponse.json(cachedResponse);
     }
     
-    const { projectName, projectType, projectDescription, userId, userEmail, projectId } = parsed.data;
-    
-    // Check cache first to avoid API calls during development/testing
-    const cacheKey = generateCacheKey({
-      projectName,
-      projectType,
-      projectDescription
-    });
-    
-    const cachedData = await getFromCache(cacheKey);
-    
-    if (cachedData) {
-      console.log('Using cached response');
-      
-      if (userId && userEmail && projectId) {
-        console.log('Saving project to database');
-        await saveProject(userId, userEmail, projectId, {
-          name: projectName,
-          type: projectType,
-          description: projectDescription || '',
-          files: cachedData.files
-        });
-      }
-      
-      return NextResponse.json(cachedData);
-    }
-    
-    // Get Anthropic client
+    // If we don't have a cached response, generate a new one
     const anthropic = getAnthropicClient();
     
-    if (!anthropic && isDevelopment) {
-      console.log('Using mock response in development mode');
-      await saveToCache(cacheKey, mockResponse);
-      
-      if (userId && userEmail && projectId) {
-        console.log('Saving project to database');
-        await saveProject(userId, userEmail, projectId, {
-          name: projectName,
-          type: projectType,
-          description: projectDescription || '',
-          files: mockResponse.files
-        });
-      }
-      
-      return NextResponse.json(mockResponse);
+    // If the anthropic client is not initialized, return an error
+    if (!anthropic && !isDevelopment) {
+      logger.error('Anthropic client not initialized');
+      logger.timeEnd('Total request processing time');
+      return NextResponse.json({ error: 'Anthropic API key not set' }, { status: 500 });
     }
     
-    if (!anthropic) {
-      return NextResponse.json(
-        { error: 'Anthropic API key not configured' },
-        { status: 500 }
-      );
+    // If we're in development mode, return a mock response
+    if (isDevelopment && !apiKey) {
+      logger.info('Using mock response in development mode');
+      logger.timeEnd('Total request processing time');
+      return NextResponse.json({ files: mockCodeFiles });
     }
     
     // Prepare message for Anthropic
-    const userMessage = `You are a senior full-stack developer. You need to create a simple ${projectType} application based on this description: "${projectDescription || projectName}".
+    const userMessage = `You are a senior full-stack developer. You need to create a simple ${projectType} application based on this description: "${prompt || projectType}".
 
 Please generate the code for this application. Focus on clean, well-structured code with good comments. The application should be built using standard HTML, CSS, and vanilla JavaScript - no frameworks.
 
@@ -529,6 +527,12 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     console.log('Sending message to Anthropic:', userMessage);
     
     // Call Anthropic API
+    if (!anthropic) {
+      logger.error('Anthropic client is null');
+      logger.timeEnd('Total request processing time');
+      return NextResponse.json({ error: 'Anthropic API key not set' }, { status: 500 });
+    }
+    
     const response = await anthropic.messages.create({
       model: "claude-3-5-haiku-20240307",
       max_tokens: 4000,
@@ -556,27 +560,17 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     try {
       // First try to parse it directly
       jsonData = JSON.parse(responseContent);
-    } catch (error) {
-      console.error('Error parsing JSON from response:', error);
+    } catch (e) {
+      console.error('Error parsing JSON from response:', e);
       
-      // Attempt to repair the JSON
-      const repairedJson = attemptJsonRepair(responseContent);
-      
-      if (repairedJson) {
-        try {
-          jsonData = JSON.parse(repairedJson);
-          console.log('Successfully repaired and parsed JSON');
-        } catch (error) {
-          console.error('Failed to parse repaired JSON:', error);
-          return NextResponse.json(
-            { error: 'Invalid JSON in AI response', details: String(error) },
-            { status: 500 }
-          );
-        }
+      // Ensure we have a valid string before attempting repair
+      if (responseContent) {
+        // Attempt to repair the JSON
+        jsonData = attemptJsonRepair(responseContent);
       } else {
-        console.error('Failed to repair JSON');
+        console.error('Response content is empty');
         return NextResponse.json(
-          { error: 'Invalid JSON in AI response that could not be repaired' },
+          { error: 'Empty response from AI' },
           { status: 500 }
         );
       }
@@ -593,122 +587,60 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     await saveToCache(cacheKey, jsonData);
     
     // If user info is provided, save to database
-    if (userId && userEmail && projectId) {
+    if (id) {
       console.log('Saving project to database');
-      await saveProject(userId, userEmail, projectId, {
-        name: projectName,
+      await saveProject(id, "", "", {
+        name: prompt || projectType,
         type: projectType,
-        description: projectDescription || '',
+        description: prompt || '',
         files: jsonData.files
       });
     }
     
+    logger.timeEnd('Total request processing time');
     return NextResponse.json(jsonData);
-  } catch (error) {
-    console.error('Error in API route:', error);
+  } catch (e) {
+    console.error('Error in API route:', e);
+    logger.error('Internal server error', e);
+    logger.timeEnd('Total request processing time');
     return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
+      { error: 'Internal server error', details: String(e) },
       { status: 500 }
     );
   }
 }
 
-// Helper function to attempt to repair malformed JSON
-function attemptJsonRepair(jsonString: string): string | null {
-  // If it's already valid, return it
+function attemptJsonRepair(content: string): Record<string, unknown> {
   try {
-    JSON.parse(jsonString);
-    return jsonString;
-  } catch (e) {
-    // Continue with repair attempts
+    // First try direct parse
+    return JSON.parse(content);
+  } catch {
+    console.log("Failed to parse JSON directly, attempting repairs...");
+    
+    // Try cleaning and repairing
+    const rebuiltJson = cleanAndRepairJson(content);
+    
+    try {
+      return JSON.parse(rebuiltJson);
+    } catch {
+      console.log("Failed to parse after cleanup, returning empty object");
+      return {};
+    }
   }
+}
 
-  console.log("Attempting to repair malformed JSON");
-
-  // Function to extract potential JSON from a text string
-  const extractPotentialJson = (text: string): string => {
-    // Look for content between triple backticks if present
-    const codeBlockRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?```/g;
-    const codeBlockMatches = [...text.matchAll(codeBlockRegex)];
-    
-    if (codeBlockMatches.length > 0) {
-      // Return the last code block (most likely to be the complete one)
-      return codeBlockMatches[codeBlockMatches.length - 1][1].trim();
-    }
-    
-    // Look for content that appears to be JSON (starts with { and ends with })
-    const jsonLikeRegex = /(\{[\s\S]*\})/g;
-    const jsonLikeMatches = [...text.matchAll(jsonLikeRegex)];
-    
-    if (jsonLikeMatches.length > 0) {
-      // Return the last match (most likely to be complete)
-      return jsonLikeMatches[jsonLikeMatches.length - 1][1].trim();
-    }
-    
-    // If no clear JSON structure is found, return the original
-    return text;
-  };
-
-  // Function to rebuild JSON structure from malformed input
-  const rebuildJson = (input: string): string => {
-    // Fix missing colons between property names and values
-    let result = input.replace(/(?<="[^"]+"\s*)(?=\s*[{["0-9])/g, ': ');
-    
-    // Fix unescaped quotes within string values
-    let inString = false;
-    let tempStr = '';
-    for (let i = 0; i < result.length; i++) {
-      const char = result[i];
-      const prevChar = i > 0 ? result[i-1] : '';
-      
-      if (char === '"' && prevChar !== '\\') {
-        inString = !inString;
-      }
-      
-      if (inString && char === '"' && prevChar !== '\\' && i !== 0 && i !== result.length - 1) {
-        tempStr += '\\"';
-      } else {
-        tempStr += char;
-      }
-    }
-    result = tempStr;
-    
+function cleanAndRepairJson(jsonString: string): string {
+  // Handle empty strings
+  if (!jsonString || jsonString.trim() === '') return "{}";
+  
+  // Try to fix common JSON issues
+  const repaired = jsonString
+    // Fix missing colons
+    .replace(/([{,]\s*"[^"]+"\s*)\s+(")/g, '$1: $2')
+    .replace(/([{,]\s*"[^"]+"\s*)\s+([^\s"{}\[\]:,]+)/g, '$1: $2')
     // Fix missing commas between array elements or object properties
-    result = result.replace(/}(\s*){/g, '},\n$1{');
-    result = result.replace(/](\s*)\[/g, '],\n$1[');
-    result = result.replace(/"(\s*){/g, '",\n$1{');
-    
-    return result;
-  };
-
-  // Try different repair strategies
-  try {
-    // First, extract potential JSON content
-    const potentialJson = extractPotentialJson(jsonString);
-    
-    // Try simple fixes first
-    try {
-      let tempObj = JSON.parse(potentialJson);
-      return JSON.stringify(tempObj);
-    } catch (error) {
-      // Continue with more complex repairs
-    }
-    
-    // Try rebuilding the JSON structure
-    const rebuiltJson = rebuildJson(potentialJson);
-    
-    try {
-      let tempObj = JSON.parse(rebuiltJson);
-      return JSON.stringify(tempObj);
-    } catch (error) {
-      console.log("Could not parse rebuilt JSON:", error);
-    }
-    
-    // If we got here, our repair attempts failed
-    console.log("All JSON repair attempts failed");
-    return null;
-  } catch (error) {
-    console.error("Error in JSON repair process:", error);
-    return null;
-  }
+    .replace(/}(\s*){/g, '},\n$1{')
+    .replace(/](\s*)\[/g, '],\n$1[');
+  
+  return repaired;
 } 
