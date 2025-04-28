@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 // Initialize Anthropic client with API key
 const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -200,6 +200,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Utility function to clean and repair potential JSON issues
 function attemptJsonRepair(jsonStr: string): string {
+  if (!jsonStr) {
+    console.log('Empty or null JSON string provided');
+    return "{}"; // Return empty object for null/empty inputs
+  }
+  
   try {
     // First, try simple parse to see if it's already valid
     JSON.parse(jsonStr);
@@ -259,11 +264,11 @@ function attemptJsonRepair(jsonStr: string): string {
     try {
       JSON.parse(result);
       console.log('JSON repair successful');
+      return result;
     } catch (e) {
       console.error('JSON repair failed:', e);
+      return "{}"; // Return empty object if all repair attempts fail
     }
-    
-    return result;
   }
 }
 

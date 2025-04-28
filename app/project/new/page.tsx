@@ -293,9 +293,9 @@ export default function NewProject() {
         setProgress(0);
       }, 1000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating project:', error);
-      setStatusMessage('Error creating project. Please try again.');
+      setStatusMessage(error?.message || String(error));
       setIsSubmitting(false);
       setProgress(0);
     }
@@ -924,7 +924,9 @@ export default function NewProject() {
                       {isSubmitting && (
                         <div className="mb-4">
                           <div className="mb-1">
-                            <p className="text-zinc-600 font-medium">{statusMessage}</p>
+                            <p className="text-zinc-600 font-medium">
+                              {typeof statusMessage === 'string' ? statusMessage : JSON.stringify(statusMessage)}
+                            </p>
                           </div>
                           <Progress value={progress} className="h-2" />
                         </div>
@@ -1246,7 +1248,9 @@ export default function NewProject() {
                       {isSearching && (
                         <div className="w-full mb-4">
                           <div className="mb-1">
-                            <p className="text-zinc-600 font-medium">{statusMessage}</p>
+                            <p className="text-zinc-600 font-medium">
+                              {typeof statusMessage === 'string' ? statusMessage : JSON.stringify(statusMessage)}
+                            </p>
                           </div>
                           <Progress value={progress} className="h-2" />
                         </div>
