@@ -89,6 +89,11 @@ The project includes an ESLint configuration file (.eslintrc.json) that sets spe
 - Created fallback mechanisms for when AI services are unavailable
 - Added a 'Generate with Claude' button to create AI-generated code directly in the editor
 
+### Deployment Improvements
+- Added Vercel configuration to handle API route timeouts for longer running AI operations
+- Increased maxDuration for API routes to 180 seconds for more reliable code generation
+- Improved reliability of JSON response parsing with better error handling
+
 ## Getting Started
 
 ### Environment Variables
