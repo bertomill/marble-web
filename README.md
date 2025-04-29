@@ -145,3 +145,5 @@ The application includes several key API routes:
 - `/api/generate-code`: Generates starter code files based on project specifications
 - `/api/generate-file`: Generates code for individual files using Claude 3.5 Haiku
 - `/api/chat-code`: Handles AI chat conversations for code generation and assistance
+
+<!-- Trigger deployment -->
