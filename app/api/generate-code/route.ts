@@ -1,11 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Anthropic } from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { isDevelopment } from '@/lib/utils';
 import { z } from 'zod';
-import { saveProject } from '@/lib/db';
 import { kv } from '@vercel/kv';
 
 export const maxDuration = 60;
@@ -29,7 +27,7 @@ function getAnthropicClient() {
 
 // Create a cache directory for development
 const cacheDir = path.join(process.cwd(), '.cache');
-if (isDevelopment && !fs.existsSync(cacheDir)) {
+if (process.env.NODE_ENV === 'development' && !fs.existsSync(cacheDir)) {
   try {
     fs.mkdirSync(cacheDir, { recursive: true });
   } catch (err) {
@@ -44,8 +42,8 @@ function generateCacheKey(data: Record<string, unknown>): string {
 }
 
 // Function to save response to cache
-async function saveToCache(key: string, data: any): Promise<void> {
-  if (isDevelopment) {
+async function saveToCache(key: string, data: unknown): Promise<void> {
+  if (process.env.NODE_ENV === 'development') {
     try {
       console.log(`Saving to cache with key: ${key}`);
       await kv.set(key, JSON.stringify(data));
@@ -56,8 +54,8 @@ async function saveToCache(key: string, data: any): Promise<void> {
 }
 
 // Function to get response from cache
-async function getFromCache(key: string): Promise<any | null> {
-  if (isDevelopment) {
+async function getFromCache(key: string): Promise<unknown | null> {
+  if (process.env.NODE_ENV === 'development') {
     try {
       console.log(`Attempting to get from cache with key: ${key}`);
       const data = await kv.get(key);
@@ -75,138 +73,6 @@ async function getFromCache(key: string): Promise<any | null> {
   }
   return null;
 }
-
-// Mock code files for testing
-const mockCodeFiles = {
-  'index.html': {
-    content: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Website</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header>
-    <h1>Welcome to My Website</h1>
-    <nav>
-      <ul>
-        <li><a href="#home">Home</a></li>
-        <li><a href="#about">About</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-  </header>
-  <main>
-    <section id="home">
-      <h2>Home</h2>
-      <p>This is the home section of my website.</p>
-    </section>
-    <section id="about">
-      <h2>About</h2>
-      <p>Learn more about what we do.</p>
-    </section>
-    <section id="contact">
-      <h2>Contact</h2>
-      <p>Get in touch with us.</p>
-    </section>
-  </main>
-  <footer>
-    <p>&copy; 2024 My Website. All rights reserved.</p>
-  </footer>
-  <script src="script.js"></script>
-</body>
-</html>`,
-    language: 'html',
-  },
-  'styles.css': {
-    content: `/* Basic reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-  color: #333;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 30px;
-}
-
-nav ul {
-  display: flex;
-  list-style: none;
-}
-
-nav li {
-  margin-left: 20px;
-}
-
-nav a {
-  text-decoration: none;
-  color: #333;
-}
-
-nav a:hover {
-  color: #0066cc;
-}
-
-section {
-  margin-bottom: 40px;
-}
-
-h1, h2 {
-  margin-bottom: 15px;
-}
-
-footer {
-  text-align: center;
-  padding: 20px 0;
-  border-top: 1px solid #eee;
-  margin-top: 30px;
-}`,
-    language: 'css',
-  },
-  'script.js': {
-    content: `// Main JavaScript file
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Document is ready!');
-  
-  // Add smooth scrolling for navigation
-  document.querySelectorAll('nav a').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-      e.preventDefault();
-      
-      const href = this.getAttribute('href');
-      if (!href) return;
-      
-      const targetSection = document.querySelector(href);
-      if (targetSection) {
-        window.scrollTo({
-          top: targetSection.offsetTop - 70,
-          behavior: 'smooth'
-        });
-      }
-    });
-  });
-});`,
-    language: 'javascript',
-  }
-};
 
 // Mock files for testing
 const mockIndexHtml = `<!DOCTYPE html>
@@ -440,9 +306,6 @@ export async function POST(request: Request) {
       projectName: z.string(),
       projectType: z.string(),
       projectDescription: z.string().optional(),
-      userEmail: z.string().optional(),
-      userId: z.string().optional(),
-      projectId: z.string().optional()
     });
     
     const parsed = schema.safeParse(body);
@@ -455,7 +318,7 @@ export async function POST(request: Request) {
       );
     }
     
-    const { projectName, projectType, projectDescription, userId, userEmail, projectId } = parsed.data;
+    const { projectName, projectType, projectDescription } = parsed.data;
     
     // Check cache first to avoid API calls during development/testing
     const cacheKey = generateCacheKey({
@@ -469,35 +332,15 @@ export async function POST(request: Request) {
     if (cachedData) {
       console.log('Using cached response');
       
-      if (userId && userEmail && projectId) {
-        console.log('Saving project to database');
-        await saveProject(userId, userEmail, projectId, {
-          name: projectName,
-          type: projectType,
-          description: projectDescription || '',
-          files: cachedData.files
-        });
-      }
-      
       return NextResponse.json(cachedData);
     }
     
     // Get Anthropic client
     const anthropic = getAnthropicClient();
     
-    if (!anthropic && isDevelopment) {
+    if (!anthropic && process.env.NODE_ENV === 'development') {
       console.log('Using mock response in development mode');
       await saveToCache(cacheKey, mockResponse);
-      
-      if (userId && userEmail && projectId) {
-        console.log('Saving project to database');
-        await saveProject(userId, userEmail, projectId, {
-          name: projectName,
-          type: projectType,
-          description: projectDescription || '',
-          files: mockResponse.files
-        });
-      }
       
       return NextResponse.json(mockResponse);
     }
@@ -541,18 +384,24 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     
     console.log('Received response from Anthropic');
     
-    let responseContent = response.content[0].text;
+    let responseText = '';
+    if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
+      responseText = response.content[0].text;
+    } else {
+      console.error('Unexpected response format from Anthropic:', response.content);
+      return NextResponse.json({ error: 'Invalid response format from AI' }, { status: 500 });
+    }
     
     // Parse JSON from response
     let jsonData;
     try {
       // First try to parse it directly
-      jsonData = JSON.parse(responseContent);
+      jsonData = JSON.parse(responseText);
     } catch (error) {
       console.error('Error parsing JSON from response:', error);
       
       // Attempt to repair the JSON
-      const repairedJson = attemptJsonRepair(responseContent);
+      const repairedJson = attemptJsonRepair(responseText);
       
       if (repairedJson) {
         try {
@@ -584,17 +433,6 @@ Keep your code as simple as possible while fulfilling the requirements. Don't ex
     // Save to cache for future requests
     await saveToCache(cacheKey, jsonData);
     
-    // If user info is provided, save to database
-    if (userId && userEmail && projectId) {
-      console.log('Saving project to database');
-      await saveProject(userId, userEmail, projectId, {
-        name: projectName,
-        type: projectType,
-        description: projectDescription || '',
-        files: jsonData.files
-      });
-    }
-    
     return NextResponse.json(jsonData);
   } catch (error) {
     console.error('Error in API route:', error);
@@ -611,7 +449,7 @@ function attemptJsonRepair(jsonString: string): string | null {
   try {
     JSON.parse(jsonString);
     return jsonString;
-  } catch (e) {
+  } catch {
     // Continue with repair attempts
   }
 
@@ -680,9 +518,9 @@ function attemptJsonRepair(jsonString: string): string | null {
     
     // Try simple fixes first
     try {
-      let tempObj = JSON.parse(potentialJson);
+      const tempObj = JSON.parse(potentialJson);
       return JSON.stringify(tempObj);
-    } catch (error) {
+    } catch {
       // Continue with more complex repairs
     }
     
@@ -690,7 +528,7 @@ function attemptJsonRepair(jsonString: string): string | null {
     const rebuiltJson = rebuildJson(potentialJson);
     
     try {
-      let tempObj = JSON.parse(rebuiltJson);
+      const tempObj = JSON.parse(rebuiltJson);
       return JSON.stringify(tempObj);
     } catch (error) {
       console.log("Could not parse rebuilt JSON:", error);
