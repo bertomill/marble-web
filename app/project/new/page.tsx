@@ -137,6 +137,7 @@ export default function NewProject() {
   const [parsedPlan, setParsedPlan] = useState<ProjectPlan | null>(null);
   // Add state to track the new project ID
   const [newProjectId, setNewProjectId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Check if speech recognition is supported
   useEffect(() => {
@@ -185,76 +186,108 @@ export default function NewProject() {
     }));
   };
 
+  // Save form data to localStorage for recovery
+  const saveFormToLocalStorage = () => {
+    try {
+      localStorage.setItem('marble_project_form', JSON.stringify(formData));
+    } catch (error) {
+      console.error('Error saving form to localStorage:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) return;
+    if (!user) {
+      setError('You must be logged in to create a project');
+      return;
+    }
     
     setIsSubmitting(true);
+    setStatusMessage('Starting project plan generation...');
     setProgress(10);
-    setStatusMessage('Validating project information...');
+    setError(null);
+    
+    let progressInterval: NodeJS.Timeout | null = null;
     
     try {
-      // After a brief delay, update progress
-      setTimeout(() => {
-        setProgress(20);
-        setStatusMessage('Preparing to generate project plan...');
-      }, 500);
+      // Update progress animation
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 60) return prev; // Cap the progress at 60% until response
+          return prev + 1;
+        });
+        // Update status message based on progress
+        if (progress < 20) {
+          setStatusMessage('Analyzing project requirements...');
+        } else if (progress < 40) {
+          setStatusMessage('Determining optimal tech stack...');
+        } else if (progress < 60) {
+          setStatusMessage('Generating development plan...');
+        }
+      }, 300);
       
-      // Set up progress simulation for the long-running AI operation
-      let progressInterval: NodeJS.Timeout | null = null;
-      
-      // Define the function to start the progress simulation
-      const startProgressSimulation = () => {
-        // Start at 25% and gradually increase to 60% while waiting for API response
-        setProgress(25);
-        setStatusMessage('Generating personalized project plan with AI...');
-        
-        let currentProgress = 25;
-        progressInterval = setInterval(() => {
-          // Increment by larger amounts (5% at a time) with less frequent updates
-          if (currentProgress < 60) {
-            // Use larger increments (5% instead of 1%)
-            currentProgress += 5;
-            setProgress(currentProgress);
-            
-            // Update messages at certain thresholds to provide more feedback
-            if (currentProgress === 30) {
-              setStatusMessage('Analyzing project requirements...');
-            } else if (currentProgress === 45) {
-              setStatusMessage('Designing technical architecture...');
-            } else if (currentProgress === 55) {
-              setStatusMessage('Finalizing project recommendations...');
-            }
-          }
-        }, 2000); // Update less frequently - every 2 seconds instead of 500ms
-      };
-      
-      startProgressSimulation();
+      // Save form data to localStorage first for recovery
+      saveFormToLocalStorage();
       
       // Generate a personalized AI response based on the project details
-      const response = await fetch('/api/generate-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectName: formData.name,
-          projectType: formData.projectType,
-          description: formData.description,
-          targetAudience: formData.targetAudience,
-          valueProposition: formData.valueProposition,
-          userJourneyText: formData.userJourneyText,
-        }),
-      });
+      let retryCount = 0;
+      const maxRetries = 2;
+      let response;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          response = await fetch('/api/generate-plan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              projectName: formData.name,
+              projectType: formData.projectType,
+              description: formData.description,
+              targetAudience: formData.targetAudience,
+              valueProposition: formData.valueProposition,
+              userJourneyText: formData.userJourneyText,
+            }),
+          });
+          
+          if (response.status === 429 || response.status === 529) {
+            // API is overloaded, retry after a delay
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              setStatusMessage(`API busy, retrying in ${retryCount * 3} seconds... (Attempt ${retryCount}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, retryCount * 3000));
+              continue;
+            }
+          }
+          
+          break; // If we get here, we either got a successful response or a different error
+        } catch (error) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            setStatusMessage(`Network error, retrying in ${retryCount * 3} seconds... (Attempt ${retryCount}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, retryCount * 3000));
+            continue;
+          }
+          throw error;
+        }
+      }
 
       // Clear the progress simulation interval
       if (progressInterval) {
         clearInterval(progressInterval);
       }
 
-      if (!response.ok) {
-        throw new Error('Failed to generate project plan');
+      if (!response || !response.ok) {
+        const errorData = await response?.json().catch(() => ({}));
+        const errorMessage = errorData?.error || 'Failed to generate project plan';
+        
+        if (response?.status === 429 || response?.status === 529) {
+          throw new Error('AI service is currently overloaded. Please try again in a few minutes.');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
 
       setProgress(70);
@@ -295,9 +328,14 @@ export default function NewProject() {
       
     } catch (error) {
       console.error('Error creating project:', error);
-      setStatusMessage('Error creating project. Please try again.');
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
       setIsSubmitting(false);
       setProgress(0);
+      
+      // Clear the progress interval if it's still running
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
     }
   };
 
@@ -1357,6 +1395,14 @@ export default function NewProject() {
                 </CardContent>
               </Card>
             </>
+          )}
+
+          {/* Show error message if there is one */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
+              <p className="font-medium">Error</p>
+              <p>{error}</p>
+            </div>
           )}
         </div>
       </main>

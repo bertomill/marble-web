@@ -155,6 +155,16 @@ const saveToCache = (cacheKey: string, data: string): void => {
   }
 };
 
+// Function to check if the error is an overloaded API error
+function isOverloadedError(error: any): boolean {
+  return (
+    error?.error?.type === 'overloaded_error' || 
+    error?.status === 529 || 
+    error?.status === 429 ||
+    (typeof error.message === 'string' && error.message.includes('overloaded'))
+  );
+}
+
 //This is the POST request handler for the generate-plan API endpoint
 export async function POST(request: NextRequest) {
   //This is the body of the request
@@ -179,7 +189,7 @@ export async function POST(request: NextRequest) {
     
     // Check for API key first
     if (!apiKey) {
-        // if apiKey is not set in environment variables, log a warning
+      // if apiKey is not set in environment variables, log a warning
       console.warn('ANTHROPIC_API_KEY is not set in environment variables, using mock plan for development');
       
       // In development, log more info to help debugging
@@ -189,10 +199,6 @@ export async function POST(request: NextRequest) {
         console.log('2. You have restarted the Next.js server after adding the key');
         console.log('3. If using npm run dev, environment variables are being loaded correctly');
       }
-      
-      //This is the project data from the request
-      const projectData = await request.json();
-      console.log("Project data received for mock plan:", JSON.stringify(projectData, null, 2));
       
       // Convert mock plan to text format to match the Claude response
       const mockResponse = JSON.stringify(mockPlan);
@@ -380,6 +386,27 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('Error generating AI plan:', error);
+      
+      // Check if this is an overloaded API error
+      if (isOverloadedError(error)) {
+        return NextResponse.json(
+          { error: 'AI service is currently overloaded. Please try again in a few minutes.' },
+          { status: 529 }
+        );
+      }
+      
+      // For other errors, we can fall back to the mock plan if in development
+      if (isDevelopment) {
+        console.log('Falling back to mock plan due to API error');
+        const mockResponse = JSON.stringify(mockPlan);
+        saveToCache(cacheKey, mockResponse);
+        
+        return NextResponse.json(
+          { response: mockResponse, warning: 'Using mock data due to API error' },
+          { status: 200 }
+        );
+      }
+      
       return NextResponse.json(
         { error: 'Failed to generate AI plan' },
         { status: 500 }
@@ -387,6 +414,15 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error generating AI plan:', error);
+    
+    // Still check for overloaded errors here too
+    if (isOverloadedError(error)) {
+      return NextResponse.json(
+        { error: 'AI service is currently overloaded. Please try again in a few minutes.' },
+        { status: 529 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to generate AI plan' },
       { status: 500 }
