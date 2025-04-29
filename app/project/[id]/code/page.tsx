@@ -1014,8 +1014,8 @@ if (yearElement) {
                     </TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="code" className="flex-grow overflow-hidden">
-                    <div className="bg-zinc-800 text-white px-3 py-1.5 text-sm font-medium flex justify-between items-center border-b border-zinc-700">
+                  <TabsContent value="code" className="flex-grow overflow-hidden flex flex-col">
+                    <div className="bg-zinc-800 text-white px-3 py-1.5 text-sm font-medium flex justify-between items-center border-b border-zinc-700 flex-shrink-0">
                       <div className="flex items-center">
                         <span className="font-mono">{currentFile || 'No file selected'}</span>
                       </div>
@@ -1031,7 +1031,7 @@ if (yearElement) {
                       </div>
                     </div>
                     
-                    <div className="h-[calc(100%-36px)]">
+                    <div className="flex-grow overflow-hidden">
                       {currentFile ? (
                         <CodeEditor 
                           language={currentLanguage}
