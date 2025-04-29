@@ -12,7 +12,8 @@ import {
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
   updateProfile,
-  User 
+  User,
+  Auth
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
@@ -34,6 +35,7 @@ type AuthContextType = {
   createAccount: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
+  firebaseInitialized: boolean;
 };
 
 // AuthContext is the context of the auth
@@ -43,7 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const auth = getAuth(app);
+  const [auth, setAuth] = useState<Auth | null>(null);
+  const [firebaseInitialized, setFirebaseInitialized] = useState(false);
+
+  // Initialize Firebase Auth
+  useEffect(() => {
+    try {
+      const authInstance = getAuth(app);
+      setAuth(authInstance);
+      setFirebaseInitialized(true);
+    } catch (error) {
+      console.error('Firebase Auth initialization error:', error);
+      setError('Failed to initialize Firebase Authentication');
+      setLoading(false);
+    }
+  }, []);
 
   const clearError = () => setError(null);
 
@@ -87,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         break;
       default:
         // default is the error of the auth
-        setError('An error occurred during authentication.');
+        setError(`Authentication error: ${error.message}`);
         break;
     }
   };
@@ -95,6 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // signInWithGoogle is the function of the auth
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      setError('Firebase Authentication is not initialized');
+      return;
+    }
+    
     try {
       clearError();
       setLoading(true);
@@ -108,6 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!auth) {
+      setError('Firebase Authentication is not initialized');
+      return;
+    }
+    
     try {
       clearError();
       setLoading(true);
@@ -122,6 +148,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // createAccount is the function of the auth
 
   const createAccount = async (email: string, password: string, name?: string) => {
+    if (!auth) {
+      setError('Firebase Authentication is not initialized');
+      return;
+    }
+    
     try {
       clearError();
       setLoading(true);
@@ -138,11 +169,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-
-    // signOut is the function of the auth
   };
 
   const signOut = async () => {
+    if (!auth) {
+      setError('Firebase Authentication is not initialized');
+      return;
+    }
+    
     try {
       clearError();
       await firebaseSignOut(auth);
@@ -152,13 +186,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (!auth) return;
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setLoading(false);
+    }, (error) => {
+      console.error('Auth state change error:', error);
+      setError('Authentication state monitoring failed');
       setLoading(false);
     });
 
     // unsubscribe is the function of the auth
-
     return () => unsubscribe();
   }, [auth]);
 
@@ -173,7 +212,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithEmail,
       createAccount,
       signOut,
-      clearError
+      clearError,
+      firebaseInitialized
     }}>
       {children}
     </AuthContext.Provider>
