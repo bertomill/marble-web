@@ -472,7 +472,7 @@ export default function NewProject() {
   };
 
   // Render microphone button for each field
-  const renderMicButton = (fieldName: string) => {
+  const renderMicButton = useCallback((fieldName: string) => {
     if (!speechSupported) return null;
 
     return (
@@ -507,7 +507,7 @@ export default function NewProject() {
         </Tooltip>
       </TooltipProvider>
     );
-  };
+  }, [speechSupported, isListening, currentField, startListening, stopListening]);
   
   // Handle keyboard shortcut (F4) to trigger speech recognition
   useEffect(() => {
@@ -539,7 +539,7 @@ export default function NewProject() {
   };
 
   // Generate field content with AI
-  const generateFieldContent = async (fieldName: string) => {
+  const generateFieldContent = useCallback(async (fieldName: string) => {
     setGeneratingField(fieldName);
     
     try {
@@ -570,10 +570,10 @@ export default function NewProject() {
     } finally {
       setGeneratingField(null);
     }
-  };
+  }, [formData.projectType, setFormData, setGeneratingField]);
 
   // Render content generation button for each field
-  const renderMagicButton = (fieldName: string) => {
+  const renderMagicButton = useCallback((fieldName: string) => {
     return (
       <TooltipProvider>
         <Tooltip>
@@ -607,17 +607,17 @@ export default function NewProject() {
         </Tooltip>
       </TooltipProvider>
     );
-  };
+  }, [generatingField, generateFieldContent]);
 
   // Helper function to extract a section of text between two headings
-  const extractSection = (text: string, startSection: string, endSection: string | null): string => {
+  const extractSection = useCallback((text: string, startSection: string, endSection: string | null): string => {
     const startRegex = new RegExp(`(?:##?\\s*${startSection}|${startSection})[:\\s]*(.*?)(?:##?\\s*${endSection}|$)`, 'is');
     const match = text.match(startRegex);
     return match ? match[1].trim() : '';
-  };
+  }, []);
   
   // Helper function to extract list items from a section
-  const extractListItems = (text: string, section: string, endSection: string | null): string[] => {
+  const extractListItems = useCallback((text: string, section: string, endSection: string | null): string[] => {
     const sectionText = extractSection(text, section, endSection);
     if (!sectionText) return [];
     
@@ -631,7 +631,7 @@ export default function NewProject() {
     }
     
     return items;
-  };
+  }, [extractSection]);
 
   useEffect(() => {
     if (aiResponse) {

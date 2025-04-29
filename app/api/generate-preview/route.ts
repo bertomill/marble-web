@@ -422,8 +422,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add animation to feature cards when they come into view
   const featureCards = document.querySelectorAll('.feature-card');
   
-  // Simple function to check if an element is in viewport
+  // Safe function to check if an element is in viewport, with null check
   function isInViewport(element) {
+    if (!element) return false;
     const rect = element.getBoundingClientRect();
     return (
       rect.top >= 0 &&
@@ -434,13 +435,21 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // Add scroll event to check if feature cards are in viewport
+  // Using requestAnimationFrame to throttle scroll events
+  let ticking = false;
   function checkVisibility() {
-    featureCards.forEach(card => {
-      if (isInViewport(card)) {
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
-      }
-    });
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        featureCards.forEach(card => {
+          if (isInViewport(card)) {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+          }
+        });
+        ticking = false;
+      });
+      ticking = true;
+    }
   }
   
   // Initial styles for animation
@@ -450,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
     card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
   });
   
-  // Check visibility on load and scroll
+  // Check visibility on load and scroll with throttling
   window.addEventListener('load', checkVisibility);
   window.addEventListener('scroll', checkVisibility);
   
